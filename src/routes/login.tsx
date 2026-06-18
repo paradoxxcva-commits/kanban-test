@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { KanbanSquare, Lock } from "lucide-react";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { KanbanSquare, Lock, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -13,8 +15,25 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { session, signIn, loading } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (!loading && session) return <Navigate to="/" replace />;
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await signIn(email.trim(), password);
+    setBusy(false);
+    if (error) {
+      toast.error("Не удалось войти", { description: "Проверьте логин и пароль." });
+      return;
+    }
+    navigate({ to: "/" });
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
@@ -27,12 +46,7 @@ function LoginPage() {
           <p className="mt-1 text-sm text-muted-foreground">Войдите в свою рабочую область</p>
         </div>
 
-        <form
-          className="surface-card space-y-4 p-6 shadow-elevated"
-          onSubmit={(e) => {
-            e.preventDefault();
-          }}
-        >
+        <form className="surface-card space-y-4 p-6 shadow-elevated" onSubmit={onSubmit}>
           <div className="space-y-2">
             <label htmlFor="email" className="text-xs font-medium text-foreground">
               Электронная почта
@@ -50,14 +64,9 @@ function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-xs font-medium text-foreground">
-                Пароль
-              </label>
-              <button type="button" className="text-[11px] text-brand hover:text-brand-glow">
-                Забыли пароль?
-              </button>
-            </div>
+            <label htmlFor="password" className="text-xs font-medium text-foreground">
+              Пароль
+            </label>
             <input
               id="password"
               type="password"
@@ -72,9 +81,10 @@ function LoginPage() {
 
           <button
             type="submit"
-            className="ring-focus mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-glow"
+            disabled={busy}
+            className="ring-focus mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-glow disabled:opacity-60"
           >
-            <Lock className="h-4 w-4" />
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
             Войти в систему
           </button>
 
