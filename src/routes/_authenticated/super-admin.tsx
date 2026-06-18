@@ -362,6 +362,9 @@ function UsersPanel() {
                       <button onClick={() => extend(u.id, u.paid_until, 3)} className="rounded border border-border bg-surface px-2 py-1 text-[11px] hover:bg-accent">
                         +3 мес
                       </button>
+                      <button onClick={() => extend(u.id, u.paid_until, 6)} className="rounded border border-border bg-surface px-2 py-1 text-[11px] hover:bg-accent">
+                        +6 мес
+                      </button>
                       <button onClick={() => extend(u.id, u.paid_until, 12)} className="rounded border border-border bg-surface px-2 py-1 text-[11px] hover:bg-accent">
                         +1 год
                       </button>
