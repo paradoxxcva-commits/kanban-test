@@ -210,7 +210,12 @@ export async function persistOrder(
   for (const { columnId, taskIds } of affected) {
     taskIds.forEach((id, idx) => {
       updates.push(
-        supabase.from("tasks").update({ column_id: columnId, position: idx }).eq("id", id),
+        (async () => {
+          await supabase
+            .from("tasks")
+            .update({ column_id: columnId, position: idx })
+            .eq("id", id);
+        })(),
       );
     });
   }
