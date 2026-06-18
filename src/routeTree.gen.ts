@@ -18,6 +18,7 @@ import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authentic
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
 import { Route as AuthenticatedBoardsIndexRouteImport } from './routes/_authenticated/boards.index'
+import { Route as AuthenticatedBoardsBoardIdRouteImport } from './routes/_authenticated/boards.$boardId'
 
 const SuspendedRoute = SuspendedRouteImport.update({
   id: '/suspended',
@@ -64,6 +65,12 @@ const AuthenticatedBoardsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedBoardsRoute,
   } as any)
+const AuthenticatedBoardsBoardIdRoute =
+  AuthenticatedBoardsBoardIdRouteImport.update({
+    id: '/$boardId',
+    path: '/$boardId',
+    getParentRoute: () => AuthenticatedBoardsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards/': typeof AuthenticatedBoardsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/': typeof AuthenticatedIndexRoute
+  '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards': typeof AuthenticatedBoardsIndexRoute
 }
 export interface FileRoutesById {
@@ -94,6 +103,7 @@ export interface FileRoutesById {
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/_authenticated/boards/': typeof AuthenticatedBoardsIndexRoute
 }
 export interface FileRouteTypes {
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/boards'
     | '/chat'
     | '/super-admin'
+    | '/boards/$boardId'
     | '/boards/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/super-admin'
     | '/'
+    | '/boards/$boardId'
     | '/boards'
   id:
     | '__root__'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat'
     | '/_authenticated/super-admin'
     | '/_authenticated/'
+    | '/_authenticated/boards/$boardId'
     | '/_authenticated/boards/'
   fileRoutesById: FileRoutesById
 }
@@ -201,14 +214,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBoardsIndexRouteImport
       parentRoute: typeof AuthenticatedBoardsRoute
     }
+    '/_authenticated/boards/$boardId': {
+      id: '/_authenticated/boards/$boardId'
+      path: '/$boardId'
+      fullPath: '/boards/$boardId'
+      preLoaderRoute: typeof AuthenticatedBoardsBoardIdRouteImport
+      parentRoute: typeof AuthenticatedBoardsRoute
+    }
   }
 }
 
 interface AuthenticatedBoardsRouteChildren {
+  AuthenticatedBoardsBoardIdRoute: typeof AuthenticatedBoardsBoardIdRoute
   AuthenticatedBoardsIndexRoute: typeof AuthenticatedBoardsIndexRoute
 }
 
 const AuthenticatedBoardsRouteChildren: AuthenticatedBoardsRouteChildren = {
+  AuthenticatedBoardsBoardIdRoute: AuthenticatedBoardsBoardIdRoute,
   AuthenticatedBoardsIndexRoute: AuthenticatedBoardsIndexRoute,
 }
 
