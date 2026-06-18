@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { KanbanSquare, CheckCircle2, Clock, Users, TrendingUp, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
+import { TasksChart } from "@/components/dashboard/tasks-chart";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Обзор — Канбан" },
@@ -19,13 +23,6 @@ interface Stat {
   icon: typeof KanbanSquare;
   tone: "brand" | "success" | "muted";
 }
-
-const stats: Stat[] = [
-  { label: "Активные доски", value: "12", delta: "+2 за неделю", icon: KanbanSquare, tone: "brand" },
-  { label: "Открытые задачи", value: "184", delta: "−9 за неделю", icon: Clock, tone: "muted" },
-  { label: "Закрыто за месяц", value: "327", delta: "+18%", icon: CheckCircle2, tone: "success" },
-  { label: "Участников", value: "24", delta: "+3 новых", icon: Users, tone: "muted" },
-];
 
 function StatCard({ stat }: { stat: Stat }) {
   const toneClass =
@@ -52,43 +49,41 @@ function StatCard({ stat }: { stat: Stat }) {
   );
 }
 
-function BoardRow({
-  name,
-  project,
-  progress,
-  members,
-}: {
-  name: string;
-  project: string;
-  progress: number;
-  members: number;
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-md border border-transparent px-3 py-3 transition hover:border-border hover:bg-accent/40">
-      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-foreground">
-        <KanbanSquare className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-foreground">{name}</div>
-        <div className="truncate text-xs text-muted-foreground">{project}</div>
-      </div>
-      <div className="hidden w-40 md:block">
-        <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
-          <span>Прогресс</span>
-          <span className="text-mono tabular-nums">{progress}%</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-brand" style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-      <div className="text-mono hidden w-16 text-right text-xs text-muted-foreground tabular-nums md:block">
-        {members} чел.
-      </div>
-    </div>
-  );
-}
-
 function DashboardPage() {
+  const { profile, user } = useAuth();
+
+  const { data: counts } = useQuery({
+    queryKey: ["dashboard-counts"],
+    queryFn: async () => {
+      const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
+      const [boards, openTasks, closedTasks, members] = await Promise.all([
+        supabase.from("boards").select("id", { count: "exact", head: true }),
+        supabase.from("tasks").select("id", { count: "exact", head: true }).is("completed_at", null),
+        supabase
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .not("completed_at", "is", null)
+          .gte("completed_at", since30),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+      ]);
+      return {
+        boards: boards.count ?? 0,
+        open: openTasks.count ?? 0,
+        closed: closedTasks.count ?? 0,
+        members: members.count ?? 0,
+      };
+    },
+  });
+
+  const stats: Stat[] = [
+    { label: "Активные доски", value: String(counts?.boards ?? "—"), delta: "по организации", icon: KanbanSquare, tone: "brand" },
+    { label: "Открытые задачи", value: String(counts?.open ?? "—"), delta: "в работе", icon: Clock, tone: "muted" },
+    { label: "Закрыто за месяц", value: String(counts?.closed ?? "—"), delta: "за 30 дн.", icon: CheckCircle2, tone: "success" },
+    { label: "Участников", value: String(counts?.members ?? "—"), delta: "в организации", icon: Users, tone: "muted" },
+  ];
+
+  const greeting = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "коллега";
+
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
@@ -98,10 +93,10 @@ function DashboardPage() {
               Рабочее пространство
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-              Добро пожаловать, Александр
+              Добро пожаловать, {greeting}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Обзор активности за последние 7 дней по всем доскам организации.
+              Сводка по задачам и доскам вашей организации.
             </p>
           </div>
           <button
@@ -121,56 +116,26 @@ function DashboardPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <section className="surface-card p-5 lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">Активные доски</h2>
-                <p className="text-xs text-muted-foreground">Последние обновления</p>
-              </div>
-              <button className="text-xs font-medium text-brand hover:text-brand-glow">
-                Все доски →
-              </button>
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-brand" />
+              <h2 className="text-sm font-semibold text-foreground">Активность</h2>
             </div>
-            <div className="space-y-1">
-              <BoardRow name="Релиз 2.4 — мобильное приложение" project="Mobile Team" progress={72} members={6} />
-              <BoardRow name="Дизайн-система v3" project="Design Ops" progress={45} members={4} />
-              <BoardRow name="Миграция инфраструктуры" project="DevOps" progress={88} members={3} />
-              <BoardRow name="Маркетинговая кампания Q3" project="Marketing" progress={20} members={5} />
-              <BoardRow name="Онбординг новых сотрудников" project="HR" progress={60} members={2} />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Лента активности появится, когда команда начнёт работать с задачами на досках.
+            </p>
           </section>
 
           <section className="surface-card p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-brand" />
-              <h2 className="text-sm font-semibold text-foreground">Лента активности</h2>
+            <div className="text-sm font-semibold text-foreground">Быстрые действия</div>
+            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+              <div>• Создайте первую доску</div>
+              <div>• Пригласите коллег (через администратора)</div>
+              <div>• Подключите календарь iCal</div>
             </div>
-            <ul className="space-y-4">
-              {[
-                { who: "Мария К.", what: "закрыла задачу", target: "#142 Аутентификация", when: "5 мин назад" },
-                { who: "Игорь С.", what: "создал доску", target: "Релиз 2.4", when: "1 ч назад" },
-                { who: "Анна В.", what: "обновила колонку", target: "В работе", when: "3 ч назад" },
-                { who: "Дмитрий Л.", what: "пригласил", target: "petrov@example.com", when: "Вчера" },
-              ].map((e, i) => (
-                <li key={i} className="flex gap-3 text-xs">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-accent-foreground">
-                    {e.who
-                      .split(" ")
-                      .map((p) => p[0])
-                      .join("")}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-foreground">
-                      <span className="font-medium">{e.who}</span>{" "}
-                      <span className="text-muted-foreground">{e.what}</span>{" "}
-                      <span className="font-medium">{e.target}</span>
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-muted-foreground">{e.when}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </section>
         </div>
+
+        <TasksChart />
       </div>
     </AppShell>
   );
