@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { KanbanSquare, CheckCircle2, Clock, Users, TrendingUp, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -99,13 +99,13 @@ function DashboardPage() {
               Сводка по задачам и доскам вашей организации.
             </p>
           </div>
-          <button
-            type="button"
+          <Link
+            to="/boards"
             className="ring-focus inline-flex items-center gap-1.5 rounded-md bg-brand px-3.5 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-glow"
           >
             <Plus className="h-4 w-4" />
             Создать доску
-          </button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

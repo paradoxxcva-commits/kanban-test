@@ -16,6 +16,9 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
+import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
+import { Route as AuthenticatedBoardsIndexRouteImport } from './routes/_authenticated/boards.index'
+import { Route as AuthenticatedBoardsBoardIdRouteImport } from './routes/_authenticated/boards.$boardId'
 
 const SuspendedRoute = SuspendedRouteImport.update({
   id: '/suspended',
@@ -51,14 +54,34 @@ const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedBoardsRoute = AuthenticatedBoardsRouteImport.update({
+  id: '/boards',
+  path: '/boards',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedBoardsIndexRoute =
+  AuthenticatedBoardsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedBoardsRoute,
+  } as any)
+const AuthenticatedBoardsBoardIdRoute =
+  AuthenticatedBoardsBoardIdRouteImport.update({
+    id: '/$boardId',
+    path: '/$boardId',
+    getParentRoute: () => AuthenticatedBoardsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/suspended': typeof SuspendedRoute
+  '/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
+  '/boards/': typeof AuthenticatedBoardsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -67,6 +90,8 @@ export interface FileRoutesByTo {
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/': typeof AuthenticatedIndexRoute
+  '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
+  '/boards': typeof AuthenticatedBoardsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -74,24 +99,47 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
   '/suspended': typeof SuspendedRoute
+  '/_authenticated/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
+  '/_authenticated/boards/': typeof AuthenticatedBoardsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/setup' | '/suspended' | '/chat' | '/super-admin'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/setup'
+    | '/suspended'
+    | '/boards'
+    | '/chat'
+    | '/super-admin'
+    | '/boards/$boardId'
+    | '/boards/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/setup' | '/suspended' | '/chat' | '/super-admin' | '/'
+  to:
+    | '/login'
+    | '/setup'
+    | '/suspended'
+    | '/chat'
+    | '/super-admin'
+    | '/'
+    | '/boards/$boardId'
+    | '/boards'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/setup'
     | '/suspended'
+    | '/_authenticated/boards'
     | '/_authenticated/chat'
     | '/_authenticated/super-admin'
     | '/_authenticated/'
+    | '/_authenticated/boards/$boardId'
+    | '/_authenticated/boards/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,16 +200,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/boards': {
+      id: '/_authenticated/boards'
+      path: '/boards'
+      fullPath: '/boards'
+      preLoaderRoute: typeof AuthenticatedBoardsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/boards/': {
+      id: '/_authenticated/boards/'
+      path: '/'
+      fullPath: '/boards/'
+      preLoaderRoute: typeof AuthenticatedBoardsIndexRouteImport
+      parentRoute: typeof AuthenticatedBoardsRoute
+    }
+    '/_authenticated/boards/$boardId': {
+      id: '/_authenticated/boards/$boardId'
+      path: '/$boardId'
+      fullPath: '/boards/$boardId'
+      preLoaderRoute: typeof AuthenticatedBoardsBoardIdRouteImport
+      parentRoute: typeof AuthenticatedBoardsRoute
+    }
   }
 }
 
+interface AuthenticatedBoardsRouteChildren {
+  AuthenticatedBoardsBoardIdRoute: typeof AuthenticatedBoardsBoardIdRoute
+  AuthenticatedBoardsIndexRoute: typeof AuthenticatedBoardsIndexRoute
+}
+
+const AuthenticatedBoardsRouteChildren: AuthenticatedBoardsRouteChildren = {
+  AuthenticatedBoardsBoardIdRoute: AuthenticatedBoardsBoardIdRoute,
+  AuthenticatedBoardsIndexRoute: AuthenticatedBoardsIndexRoute,
+}
+
+const AuthenticatedBoardsRouteWithChildren =
+  AuthenticatedBoardsRoute._addFileChildren(AuthenticatedBoardsRouteChildren)
+
 interface AuthenticatedRouteChildren {
+  AuthenticatedBoardsRoute: typeof AuthenticatedBoardsRouteWithChildren
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedBoardsRoute: AuthenticatedBoardsRouteWithChildren,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
