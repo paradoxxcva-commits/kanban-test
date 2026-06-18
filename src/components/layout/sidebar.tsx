@@ -6,11 +6,11 @@ import {
   Users,
   Settings,
   Shield,
-  Zap,
-  ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 interface NavItem {
   to: string;
@@ -21,14 +21,10 @@ interface NavItem {
 
 const mainNav: NavItem[] = [
   { to: "/", label: "Обзор", icon: LayoutDashboard },
-  { to: "/boards", label: "Доски", icon: KanbanSquare, badge: "12" },
+  { to: "/boards", label: "Доски", icon: KanbanSquare },
   { to: "/calendar", label: "Календарь", icon: CalendarDays },
+  { to: "/chat", label: "Чат", icon: MessageSquare },
   { to: "/team", label: "Команда", icon: Users },
-];
-
-const adminNav: NavItem[] = [
-  { to: "/settings", label: "Настройки", icon: Settings },
-  { to: "/super-admin", label: "Системный админ", icon: Shield },
 ];
 
 function NavLink({ item }: { item: NavItem }) {
@@ -72,33 +68,19 @@ function SidebarSection({ title, items }: { title: string; items: NavItem[] }) {
   );
 }
 
-function PromoBlock() {
-  return (
-    <div className="surface-card border-sidebar-border bg-sidebar-accent/40 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand/15 text-brand">
-          <Zap className="h-4 w-4" />
-        </div>
-        <div className="text-sm font-semibold text-sidebar-foreground">Быстрый старт</div>
-      </div>
-      <p className="mb-3 text-xs leading-relaxed text-sidebar-muted">
-        Подключите Telegram-бота и получайте уведомления о задачах прямо в чате.
-      </p>
-      <button
-        type="button"
-        className="ring-focus inline-flex w-full items-center justify-center gap-1 rounded-md bg-brand px-3 py-2 text-xs font-semibold text-brand-foreground transition hover:bg-brand-glow"
-      >
-        Подключить
-        <ChevronRight className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
 export function AppSidebar() {
+  const { hasRole, profile } = useAuth();
+
+  const adminNav: NavItem[] = [{ to: "/settings", label: "Настройки", icon: Settings }];
+  if (hasRole("super_admin")) {
+    adminNav.push({ to: "/super-admin", label: "Системный админ", icon: Shield });
+  }
+
+  const paid = profile?.paid_until ? new Date(profile.paid_until) : null;
+  const daysLeft = paid ? Math.ceil((paid.getTime() - Date.now()) / 86400000) : null;
+
   return (
     <aside className="flex h-screen w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-      {/* Лого */}
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand text-brand-foreground">
           <KanbanSquare className="h-4 w-4" />
@@ -109,16 +91,26 @@ export function AppSidebar() {
         </div>
       </div>
 
-      {/* Навигация */}
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
         <SidebarSection title="Рабочее пространство" items={mainNav} />
         <SidebarSection title="Управление" items={adminNav} />
       </nav>
 
-      {/* Промо */}
-      <div className="border-t border-sidebar-border p-3">
-        <PromoBlock />
-      </div>
+      {paid && daysLeft !== null && (
+        <div className="border-t border-sidebar-border p-3">
+          <div className="surface-card border-sidebar-border bg-sidebar-accent/40 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-sidebar-muted">
+              Подписка
+            </div>
+            <div className="mt-1 text-sm font-semibold text-sidebar-foreground">
+              {daysLeft > 0 ? `${daysLeft} дн.` : "истекла"}
+            </div>
+            <div className="text-[11px] text-sidebar-muted">
+              до {paid.toLocaleDateString("ru-RU")}
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
