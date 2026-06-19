@@ -7,6 +7,7 @@ import {
   Settings,
   Shield,
   MessageSquare,
+  UserCircle,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/utils";
@@ -19,12 +20,11 @@ interface NavItem {
   badge?: string;
 }
 
-const mainNav: NavItem[] = [
+const baseNav: NavItem[] = [
   { to: "/", label: "Обзор", icon: LayoutDashboard },
   { to: "/boards", label: "Доски", icon: KanbanSquare },
   { to: "/calendar", label: "Календарь", icon: CalendarDays },
   { to: "/chat", label: "Чат", icon: MessageSquare },
-  { to: "/team", label: "Команда", icon: Users },
 ];
 
 function NavLink({ item }: { item: NavItem }) {

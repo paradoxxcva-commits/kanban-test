@@ -14,6 +14,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
@@ -45,6 +46,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSuperAdminRoute = AuthenticatedSuperAdminRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards/': typeof AuthenticatedBoardsIndexRoute
   '/api/public/ical/$token': typeof ApiPublicIcalTokenRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/': typeof AuthenticatedIndexRoute
   '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards': typeof AuthenticatedBoardsIndexRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/_authenticated/boards/': typeof AuthenticatedBoardsIndexRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat'
     | '/super-admin'
+    | '/team'
     | '/boards/$boardId'
     | '/boards/'
     | '/api/public/ical/$token'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat'
     | '/super-admin'
+    | '/team'
     | '/'
     | '/boards/$boardId'
     | '/boards'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar'
     | '/_authenticated/chat'
     | '/_authenticated/super-admin'
+    | '/_authenticated/team'
     | '/_authenticated/'
     | '/_authenticated/boards/$boardId'
     | '/_authenticated/boards/'
@@ -221,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/super-admin': {
@@ -301,6 +320,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -310,6 +330,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
