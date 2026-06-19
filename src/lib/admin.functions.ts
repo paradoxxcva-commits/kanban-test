@@ -211,3 +211,85 @@ export const updateUserOrg = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const setUserRoles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        roles: z.array(z.enum(["super_admin", "admin", "user"])).min(1),
+        orgId: z.string().uuid().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: delErr } = await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", data.userId);
+    if (delErr) throw new Error(delErr.message);
+    const rows = data.roles.map((role) => ({
+      user_id: data.userId,
+      role,
+      org_id: role === "super_admin" ? null : data.orgId,
+    }));
+    const { error: insErr } = await supabaseAdmin.from("user_roles").insert(rows);
+    if (insErr) throw new Error(insErr.message);
+    return { ok: true };
+  });
+
+// Change own password (any authenticated user). Verifies current password first.
+export const changeOwnPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(8).max(72),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: userRow, error: getErr } = await supabaseAdmin.auth.admin.getUserById(
+      (context as any).userId,
+    );
+    if (getErr || !userRow.user?.email) throw new Error("Не удалось получить пользователя");
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const verifier = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
+    const { error: signErr } = await verifier.auth.signInWithPassword({
+      email: userRow.user.email,
+      password: data.currentPassword,
+    });
+    if (signErr) throw new Error("Текущий пароль неверный");
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById((context as any).userId, {
+      password: data.newPassword,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Super admin: set any user's password (including own) without current-password check.
+export const adminSetUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ userId: z.string().uuid(), newPassword: z.string().min(8).max(72) })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.newPassword,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

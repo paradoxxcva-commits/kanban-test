@@ -7,6 +7,7 @@ import {
   Settings,
   Shield,
   MessageSquare,
+  UserCircle,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/utils";
@@ -19,12 +20,11 @@ interface NavItem {
   badge?: string;
 }
 
-const mainNav: NavItem[] = [
+const baseNav: NavItem[] = [
   { to: "/", label: "Обзор", icon: LayoutDashboard },
   { to: "/boards", label: "Доски", icon: KanbanSquare },
   { to: "/calendar", label: "Календарь", icon: CalendarDays },
   { to: "/chat", label: "Чат", icon: MessageSquare },
-  { to: "/team", label: "Команда", icon: Users },
 ];
 
 function NavLink({ item }: { item: NavItem }) {
@@ -71,7 +71,15 @@ function SidebarSection({ title, items }: { title: string; items: NavItem[] }) {
 export function AppSidebar() {
   const { hasRole, profile } = useAuth();
 
-  const adminNav: NavItem[] = [{ to: "/settings", label: "Настройки", icon: Settings }];
+  const mainNav: NavItem[] = [...baseNav];
+  if (hasRole("super_admin")) {
+    mainNav.push({ to: "/team", label: "Команда", icon: Users });
+  }
+
+  const adminNav: NavItem[] = [
+    { to: "/account", label: "Аккаунт", icon: UserCircle },
+    { to: "/settings", label: "Настройки", icon: Settings },
+  ];
   if (hasRole("super_admin")) {
     adminNav.push({ to: "/super-admin", label: "Системный админ", icon: Shield });
   }
