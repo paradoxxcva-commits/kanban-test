@@ -71,7 +71,15 @@ function SidebarSection({ title, items }: { title: string; items: NavItem[] }) {
 export function AppSidebar() {
   const { hasRole, profile } = useAuth();
 
-  const adminNav: NavItem[] = [{ to: "/settings", label: "Настройки", icon: Settings }];
+  const mainNav: NavItem[] = [...baseNav];
+  if (hasRole("super_admin")) {
+    mainNav.push({ to: "/team", label: "Команда", icon: Users });
+  }
+
+  const adminNav: NavItem[] = [
+    { to: "/account", label: "Аккаунт", icon: UserCircle },
+    { to: "/settings", label: "Настройки", icon: Settings },
+  ];
   if (hasRole("super_admin")) {
     adminNav.push({ to: "/super-admin", label: "Системный админ", icon: Shield });
   }
