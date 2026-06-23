@@ -14,10 +14,11 @@ services:
       POSTGRES_DB: postgres
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      test: ['CMD-SHELL', 'pg_isready -U postgres && psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_namespace WHERE nspname='auth'" | grep -q 1']
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   # ==========================================
   # Supabase Auth (GoTrue)
@@ -75,6 +76,7 @@ services:
       API_EXTERNAL_URL: ${SITE_URL:-http://localhost:3000}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       METRICS_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      SECRET_KEY_BASE: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       FLY_ALLOC_ID: docker-local
 
   # ==========================================
@@ -110,6 +112,7 @@ services:
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://rest:3000
       PGRST_HOST: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       FILE_SIZE_LIMIT: 26214400
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
