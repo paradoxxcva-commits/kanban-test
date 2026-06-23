@@ -5,7 +5,7 @@ services:
   # PostgreSQL
   # ==========================================
   db:
-    image: supabase/postgres:15.6.1
+    image: supabase/postgres:15.14.1.138
     container_name: kanban-db
     restart: unless-stopped
     ports:
@@ -26,7 +26,7 @@ services:
   # Supabase Auth (GoTrue)
   # ==========================================
   supabase-auth:
-    image: supabase/gotrue:v2.158.1
+    image: supabase/gotrue:v2.191.0
     container_name: kanban-auth
     restart: unless-stopped
     depends_on:
@@ -59,7 +59,7 @@ services:
   # Supabase Realtime (для чата)
   # ==========================================
   realtime:
-    image: supabase/realtime:v2.33.5
+    image: supabase/realtime:v2.111.4
     container_name: kanban-realtime
     restart: unless-stopped
     depends_on:
@@ -102,7 +102,7 @@ services:
   # Supabase Storage
   # ==========================================
   storage:
-    image: supabase/storage-api:v1.11.13
+    image: supabase/storage-api:v1.61.0
     container_name: kanban-storage
     restart: unless-stopped
     depends_on:
@@ -128,7 +128,7 @@ services:
   # Kong (API Gateway)
   # ==========================================
   kong:
-    image: kong:2.8.1
+    image: kong:3.4
     container_name: kanban-kong
     restart: unless-stopped
     depends_on:
