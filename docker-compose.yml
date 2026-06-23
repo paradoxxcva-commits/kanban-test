@@ -14,7 +14,7 @@ services:
       POSTGRES_DB: postgres
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres && psql -U postgres -d postgres -tAc "SELECT 1 FROM pg_namespace WHERE nspname='auth'" | grep -q 1']
+      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -d postgres -tAc \"SELECT 1 FROM pg_namespace WHERE nspname='auth'\" | grep -q 1"]
       interval: 5s
       timeout: 5s
       retries: 20
