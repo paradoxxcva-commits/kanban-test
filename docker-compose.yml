@@ -9,6 +9,7 @@ services:
       - '5432:5432'
     volumes:
       - supabase-db-data:/var/lib/postgresql/data
+      - ./supabase/init:/docker-entrypoint-initdb.d:ro
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersecretpassword}
       POSTGRES_DB: postgres
