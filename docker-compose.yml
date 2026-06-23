@@ -74,6 +74,8 @@ services:
       REALTIME_DB_NAME: postgres
       API_EXTERNAL_URL: ${SITE_URL:-http://localhost:3000}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      METRICS_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      FLY_ALLOC_ID: docker-local
 
   # ==========================================
   # PostgREST (REST API для БД)
@@ -137,7 +139,7 @@ services:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
       KONG_DNS_RESOLVER: 127.0.0.11
-      KONG_NGINX_PROXY_PROXY_SET_HEADER: "X-Forwarded-For $proxy_add_x_forwarded_for"
+      KONG_NGINX_PROXY_PROXY_SET_HEADER: "X-Forwarded-For $$proxy_add_x_forwarded_for"
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: "128k"
       KONG_NGINX_PROXY_PROXY_BUFFERS: "64 128k"
       ANON_KEY: ${ANON_KEY}
