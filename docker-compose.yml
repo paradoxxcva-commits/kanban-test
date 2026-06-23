@@ -1,12 +1,9 @@
-version: '3.8'
-
 services:
   # ==========================================
   # PostgreSQL
   # ==========================================
   db:
     image: supabase/postgres:15.14.1.138
-    container_name: kanban-db
     restart: unless-stopped
     ports:
       - '5432:5432'
@@ -27,13 +24,12 @@ services:
   # ==========================================
   supabase-auth:
     image: supabase/gotrue:v2.191.0
-    container_name: kanban-auth
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      API_EXTERNAL_URL: ${SITE_URL:-http://localhost:8000}
+      API_EXTERNAL_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       GOTRUE_DB_DRIVER: postgres
@@ -60,7 +56,6 @@ services:
   # ==========================================
   realtime:
     image: supabase/realtime:v2.111.4
-    container_name: kanban-realtime
     restart: unless-stopped
     depends_on:
       db:
@@ -77,7 +72,7 @@ services:
       REALTIME_DB_USER: postgres
       REALTIME_DB_PASSWORD: ${POSTGRES_PASSWORD:-supersecretpassword}
       REALTIME_DB_NAME: postgres
-      API_EXTERNAL_URL: ${SITE_URL:-http://localhost:8000}
+      API_EXTERNAL_URL: ${SITE_URL:-http://localhost:3000}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
 
   # ==========================================
@@ -85,7 +80,6 @@ services:
   # ==========================================
   rest:
     image: postgrest/postgrest:v12.2.3
-    container_name: kanban-rest
     restart: unless-stopped
     depends_on:
       db:
@@ -103,7 +97,6 @@ services:
   # ==========================================
   storage:
     image: supabase/storage-api:v1.61.0
-    container_name: kanban-storage
     restart: unless-stopped
     depends_on:
       db:
@@ -129,7 +122,6 @@ services:
   # ==========================================
   kong:
     image: kong:3.4
-    container_name: kanban-kong
     restart: unless-stopped
     depends_on:
       rest:
@@ -148,8 +140,15 @@ services:
       KONG_NGINX_PROXY_PROXY_SET_HEADER: "X-Forwarded-For $proxy_add_x_forwarded_for"
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: "128k"
       KONG_NGINX_PROXY_PROXY_BUFFERS: "64 128k"
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
     volumes:
       - ./kong.yml:/etc/kong/kong.yml:ro
+    healthcheck:
+      test: ['CMD', 'kong', 'health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ==========================================
   # Приложение (TanStack Start)
@@ -162,18 +161,17 @@ services:
         SUPABASE_URL: http://kong:8000
         SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
         SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-    container_name: kanban-app
     restart: unless-stopped
     depends_on:
       kong:
-        condition: service_started
+        condition: service_healthy
     ports:
       - '${APP_PORT:-3000}:3000'
     environment:
       SUPABASE_URL: http://kong:8000
       SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-      VITE_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-http://localhost:8000}
+      VITE_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-http://localhost:8100}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
       NODE_ENV: production
       PORT: 3000
