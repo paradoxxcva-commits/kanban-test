@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # PostgreSQL
+  # ==========================================
+  db:
+    image: supabase/postgres:15.6.1
+    container_name: kanban-db
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersecretpassword}
+      POSTGRES_DB: postgres
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ==========================================
+  # Supabase Auth (GoTrue)
+  # ==========================================
+  supabase-auth:
+    image: supabase/gotrue:v2.158.1
+    container_name: kanban-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      API_EXTERNAL_URL: ${SITE_URL:-http://localhost:8000}
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-supersecretpassword}@db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_URI_ALLOW_LIST: ""
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "true"
+      GOTRUE_SMS_PROVIDER: "twilio"
+      GOTRUE_SMS_TWILIO_ACCOUNT_SID: ""
+      GOTRUE_SMS_TWILIO_AUTH_TOKEN: ""
+      GOTRUE_SMS_TWILIO_MESSAGE_SERVICE_SID: ""
+
+  # ==========================================
+  # Supabase Realtime (для чата)
+  # ==========================================
+  realtime:
+    image: supabase/realtime:v2.33.5
+    container_name: kanban-realtime
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-supersecretpassword}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "ALTER PUBLICATION supabase_realtime ADD TABLE public.messages"
+      REALTIME_DB_HOST: db
+      REALTIME_DB_PORT: 5432
+      REALTIME_DB_USER: postgres
+      REALTIME_DB_PASSWORD: ${POSTGRES_PASSWORD:-supersecretpassword}
+      REALTIME_DB_NAME: postgres
+      API_EXTERNAL_URL: ${SITE_URL:-http://localhost:8000}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+
+  # ==========================================
+  # PostgREST (REST API для БД)
+  # ==========================================
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: kanban-rest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-supersecretpassword}@db:5432/postgres
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_USE_LEGACY_GUCS: "true"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_APP_SETTINGS_JWT_EXP: 3600
+
+  # ==========================================
+  # Supabase Storage
+  # ==========================================
+  storage:
+    image: supabase/storage-api:v1.11.13
+    container_name: kanban-storage
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_HOST: http://rest:3000
+      FILE_SIZE_LIMIT: 26214400
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      IS_MULTITENANT: "false"
+      REQUEST_X_FORWARDED_HOST: enable
+      REGION: local
+    volumes:
+      - supabase-storage-data:/var/lib/storage
+
+  # ==========================================
+  # Kong (API Gateway)
+  # ==========================================
+  kong:
+    image: kong:2.8.1
+    container_name: kanban-kong
+    restart: unless-stopped
+    depends_on:
+      rest:
+        condition: service_started
+      supabase-auth:
+        condition: service_started
+      storage:
+        condition: service_started
+    ports:
+      - '${KONG_HTTP_PORT:-8000}:8000'
+      - '${KONG_HTTPS_PORT:-8443}:8443'
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_DNS_RESOLVER: 127.0.0.11
+      KONG_NGINX_PROXY_PROXY_SET_HEADER: "X-Forwarded-For $proxy_add_x_forwarded_for"
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: "128k"
+      KONG_NGINX_PROXY_PROXY_BUFFERS: "64 128k"
+    volumes:
+      - ./kong.yml:/etc/kong/kong.yml:ro
+
+  # ==========================================
+  # Приложение (TanStack Start)
+  # ==========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SUPABASE_URL: http://kong:8000
+        SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
+        SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    container_name: kanban-app
+    restart: unless-stopped
+    depends_on:
+      kong:
+        condition: service_started
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    environment:
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      VITE_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-http://localhost:8000}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+
+volumes:
+  supabase-db-data:
+  supabase-storage-data:

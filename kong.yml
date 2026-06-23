@@ -1,0 +1,87 @@
+_format_version: "1.1"
+
+consumers:
+  - username: anon
+    keyauth_credentials:
+      - key: ${ANON_KEY}
+  - username: service_role
+    keyauth_credentials:
+      - key: ${SERVICE_ROLE_KEY}
+
+acls:
+  - consumer: anon
+    group: anon
+  - consumer: service_role
+    group: admin
+
+services:
+  # Auth (GoTrue)
+  - name: auth
+    url: http://supabase-auth:9999/
+    routes:
+      - name: auth-v1-open
+        strip_path: true
+        paths:
+          - /auth/v1
+      - name: auth-v1-callback
+        strip_path: true
+        paths:
+          - /auth/v1/callback
+
+  # PostgREST (DB API)
+  - name: rest
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1
+        strip_path: true
+        paths:
+          - /rest/v1
+
+  # Storage
+  - name: storage
+    url: http://storage:8000/
+    routes:
+      - name: storage-v1
+        strip_path: true
+        paths:
+          - /storage/v1
+
+  # Realtime (WebSocket)
+  - name: realtime
+    url: http://realtime:4000/
+    routes:
+      - name: realtime-v1
+        strip_path: true
+        paths:
+          - /realtime/v1
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - '*'
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+        - X-Client-Info
+        - apikey
+      credentials: true
+      max_age: 3600
+
+  - name: key-auth
+    config:
+      hide_credentials: false
+
+  - name: acl
+    config:
+      hide_groups_header: true
+      allow:
+        - admin
+        - anon
