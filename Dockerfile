@@ -1,10 +1,10 @@
-FROM oven/bun:1-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
-RUN bun install
+RUN npm ci
 
 COPY . .
 
@@ -18,9 +18,9 @@ ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 ENV VITE_SUPABASE_URL=$SUPABASE_URL
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
 
-RUN bun run build
+RUN npm run build
 
-# --- СТАДИЯ ЗАПУСКА (РАНТАЙМ) ---
+# --- RUNTIME ---
 FROM node:22-alpine
 
 WORKDIR /app
