@@ -162,6 +162,7 @@ services:
       dockerfile: Dockerfile
       args:
         SUPABASE_URL: http://kong:8000
+        VITE_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-https://kanban.ignorelist.com}
         SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
         SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
     restart: unless-stopped
