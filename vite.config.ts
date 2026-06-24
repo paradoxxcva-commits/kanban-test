@@ -11,12 +11,5 @@ export default defineConfig({
     react(),
     tsconfigPaths(),
   ],
-  nitro: {
-    preset: 'node-server',
-    output: {
-      dir: '.output',
-      serverDir: '.output/server',
-      publicDir: '.output/client',
-    }
-  }
+
 });

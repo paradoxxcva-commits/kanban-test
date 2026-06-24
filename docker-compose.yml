@@ -79,6 +79,7 @@ services:
       METRICS_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       SECRET_KEY_BASE: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       FLY_ALLOC_ID: docker-local
+      APP_NAME: realtime
 
   # ==========================================
   # PostgREST (REST API для БД)
@@ -120,6 +121,7 @@ services:
       IS_MULTITENANT: "false"
       REQUEST_X_FORWARDED_HOST: enable
       REGION: local
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-supersecretpassword}@db:5432/postgres
     volumes:
       - supabase-storage-data:/var/lib/storage
 
