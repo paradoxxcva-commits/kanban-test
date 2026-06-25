@@ -55,17 +55,15 @@ function OrganizationsPanel() {
   const deleteOrgFn = useServerFn(deleteOrganization);
   const { data, refetch, isLoading } = useQuery({ queryKey: ["orgs"], queryFn: () => fetchOrgs() });
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
   const [busy, setBusy] = useState(false);
 
   const onAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await createOrgFn({ data: { name, slug } });
+      await createOrgFn({ data: { name } });
       toast.success("Организация создана");
       setName("");
-      setSlug("");
       refetch();
     } catch (err: any) {
       toast.error("Ошибка", { description: err.message });
@@ -96,16 +94,6 @@ function OrganizationsPanel() {
             required
             className="ring-focus block rounded-md border border-input bg-background px-3 py-1.5 text-sm"
             placeholder="ООО «Пример»"
-          />
-        </div>
-        <div>
-          <label className="text-[11px] text-muted-foreground">Слаг</label>
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
-            required
-            className="ring-focus block rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-            placeholder="primer"
           />
         </div>
         <button

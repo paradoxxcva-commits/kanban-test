@@ -93,13 +93,14 @@ export const listAllUsers = createServerFn({ method: "GET" })
 
 export const createOrganization = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ name: z.string().min(1), slug: z.string().min(1) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ name: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     await ensureSuperAdmin(context as any);
+    const slug = data.name.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: org, error } = await supabaseAdmin
       .from("organizations")
-      .insert({ name: data.name, slug: data.slug })
+      .insert({ name: data.name, slug })
       .select()
       .single();
     if (error) throw new Error(error.message);
