@@ -77,7 +77,7 @@ services:
       API_EXTERNAL_URL: ${SITE_URL:-http://localhost:3000}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       METRICS_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
-      SECRET_KEY_BASE: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-super-secret-jwt-token-with-at-least-32-characters-sufficient-for-realtime}
       FLY_ALLOC_ID: docker-local
       APP_NAME: realtime
 
