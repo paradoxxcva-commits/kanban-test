@@ -539,8 +539,8 @@ function ChatThread({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error("Файл слишком большой (макс. 25 МБ)");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Файл слишком большой (макс. 15 МБ)");
       return;
     }
     setBusy(true);

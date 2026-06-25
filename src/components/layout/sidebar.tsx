@@ -9,15 +9,63 @@ import {
   MessageSquare,
   UserCircle,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavItem {
   to: string;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   badge?: string;
+}
+
+function ChatUnreadBadge({ userId }: { userId: string }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const { data: sent } = await supabase
+          .from("messages")
+          .select("sender_id")
+          .eq("recipient_id", userId);
+
+        const peerIds = new Set<string>();
+        (sent ?? []).forEach((m) => peerIds.add(m.sender_id));
+
+        let total = 0;
+        for (const peerId of peerIds) {
+          const lastRead = localStorage.getItem(`chat_read_${peerId}`);
+          const ts = lastRead ? new Date(lastRead).toISOString() : "1970-01-01T00:00:00Z";
+          const { count } = await supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("sender_id", peerId)
+            .eq("recipient_id", userId)
+            .gt("inserted_at", ts);
+          total += count ?? 0;
+        }
+        if (!cancelled) setCount(total);
+      } catch {}
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [userId]);
+
+  if (count <= 0) return null;
+  return (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-brand-foreground tabular-nums">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
 }
 
 const baseNav: NavItem[] = [
@@ -27,7 +75,7 @@ const baseNav: NavItem[] = [
   { to: "/chat", label: "Чат", icon: MessageSquare },
 ];
 
-function NavLink({ item }: { item: NavItem }) {
+function NavLink({ item, badge }: { item: NavItem; badge?: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
 
@@ -43,6 +91,7 @@ function NavLink({ item }: { item: NavItem }) {
     >
       <item.icon className="h-[18px] w-[18px] shrink-0" />
       <span className="flex-1 truncate">{item.label}</span>
+      {badge}
       {item.badge && (
         <span className="text-mono rounded bg-sidebar-accent px-1.5 py-0.5 text-[10px] tabular-nums text-sidebar-muted">
           {item.badge}
@@ -55,21 +104,21 @@ function NavLink({ item }: { item: NavItem }) {
   );
 }
 
-function SidebarSection({ title, items }: { title: string; items: NavItem[] }) {
+function SidebarSection({ title, items, badges }: { title: string; items: NavItem[]; badges?: Record<string, React.ReactNode> }) {
   return (
     <div className="space-y-1">
       <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted/70">
         {title}
       </div>
       {items.map((item) => (
-        <NavLink key={item.to} item={item} />
+        <NavLink key={item.to} item={item} badge={badges?.[item.to]} />
       ))}
     </div>
   );
 }
 
 export function AppSidebar() {
-  const { hasRole, profile } = useAuth();
+  const { hasRole, profile, user } = useAuth();
 
   const mainNav: NavItem[] = [...baseNav];
   if (hasRole("super_admin")) {
@@ -87,6 +136,11 @@ export function AppSidebar() {
   const paid = profile?.paid_until ? new Date(profile.paid_until) : null;
   const daysLeft = paid ? Math.ceil((paid.getTime() - Date.now()) / 86400000) : null;
 
+  const sidebarBadges: Record<string, React.ReactNode> = {};
+  if (user) {
+    sidebarBadges["/chat"] = <ChatUnreadBadge userId={user.id} />;
+  }
+
   return (
     <aside className="flex h-screen w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-5">
@@ -100,7 +154,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
-        <SidebarSection title="Рабочее пространство" items={mainNav} />
+        <SidebarSection title="Рабочее пространство" items={mainNav} badges={sidebarBadges} />
         <SidebarSection title="Управление" items={adminNav} />
       </nav>
 
