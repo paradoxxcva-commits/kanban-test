@@ -48,7 +48,7 @@ services:
 
   # Realtime (WebSocket)
   - name: realtime
-    url: http://realtime:4000/
+    url: http://realtime:4000/socket
     routes:
       - name: realtime-v1
         strip_path: true
