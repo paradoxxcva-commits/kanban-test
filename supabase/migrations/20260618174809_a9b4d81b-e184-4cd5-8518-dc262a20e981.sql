@@ -34,7 +34,7 @@ create table public.user_roles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   role public.app_role not null,
-  org_id uuid references public.organizations(id) on delete cascade,
+  org_id uuid references public.organizations(id) on delete set null,
   created_at timestamptz not null default now(),
   unique(user_id, role, org_id)
 );
