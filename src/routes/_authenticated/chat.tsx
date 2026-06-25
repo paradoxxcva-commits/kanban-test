@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Paperclip, Send, MessageSquare, FileText, Loader2 } from "lucide-react";
+import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -16,18 +16,22 @@ interface OrgUser {
   id: string;
   email: string;
   full_name: string | null;
+  org_name?: string | null;
 }
 
 interface Message {
   id: string;
   sender_id: string;
   recipient_id: string;
+  content: string | null;
   body: string | null;
   attachment_url: string | null;
   attachment_name: string | null;
   attachment_size: number | null;
   attachment_mime: string | null;
   created_at: string;
+  inserted_at: string;
+  updated_at: string;
   read_at: string | null;
 }
 
@@ -37,8 +41,157 @@ function initials(name: string | null, email: string) {
 }
 
 function ChatPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, hasRole } = useAuth();
+  const isSuperAdmin = hasRole("super_admin");
   const [selected, setSelected] = useState<string | null>(null);
+
+  if (isSuperAdmin) {
+    return <SuperAdminChat user={user!} profile={profile} selected={selected} setSelected={setSelected} />;
+  }
+  return <UserChat user={user!} profile={profile} selected={selected} setSelected={setSelected} />;
+}
+
+function SuperAdminChat({
+  user,
+  profile,
+  selected,
+  setSelected,
+}: {
+  user: { id: string };
+  profile: any;
+  selected: string | null;
+  setSelected: (id: string | null) => void;
+}) {
+  const { data: supportChats } = useQuery({
+    queryKey: ["support-chats", user.id],
+    queryFn: async () => {
+      const { data: sent } = await supabase
+        .from("messages")
+        .select("sender_id, recipient_id")
+        .eq("recipient_id", user.id)
+        .order("inserted_at", { ascending: false });
+      const { data: received } = await supabase
+        .from("messages")
+        .select("sender_id, recipient_id")
+        .eq("sender_id", user.id)
+        .order("inserted_at", { ascending: false });
+
+      const peerIds = new Set<string>();
+      (sent ?? []).forEach((m) => {
+        if (m.sender_id !== user.id) peerIds.add(m.sender_id);
+      });
+      (received ?? []).forEach((m) => {
+        if (m.recipient_id !== user.id) peerIds.add(m.recipient_id);
+      });
+
+      if (peerIds.size === 0) return [];
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, org_id")
+        .in("id", Array.from(peerIds));
+
+      const orgIds = [...new Set((profiles ?? []).map((p) => p.org_id).filter(Boolean))];
+      let orgNames: Record<string, string> = {};
+      if (orgIds.length > 0) {
+        const { data: orgs } = await supabase
+          .from("organizations")
+          .select("id, name")
+          .in("id", orgIds);
+        (orgs ?? []).forEach((o: any) => (orgNames[o.id] = o.name));
+      }
+
+      return (profiles ?? []).map((p) => ({
+        ...p,
+        org_name: p.org_id ? orgNames[p.org_id] ?? null : null,
+      }));
+    },
+  });
+
+  return (
+    <AppShell>
+      <div className="flex h-[calc(100vh-3.5rem)]">
+        <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
+          <div className="border-b border-border p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <Headphones className="h-3.5 w-3.5" /> Техподдержка
+            </div>
+            <div className="mt-1 text-sm font-semibold text-foreground">
+              Обращения пользователей
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {(supportChats ?? []).map((u) => (
+              <button
+                key={u.id}
+                onClick={() => setSelected(u.id)}
+                className={`flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition ${
+                  selected === u.id
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                }`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+                  {initials(u.full_name, u.email)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-foreground">{u.full_name || u.email}</div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {u.org_name ? `${u.org_name} · ` : ""}
+                    {u.email}
+                  </div>
+                </div>
+              </button>
+            ))}
+            {supportChats?.length === 0 && (
+              <div className="p-4 text-xs text-muted-foreground">Обращений пока нет.</div>
+            )}
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          {selected && user ? (
+            <ChatThread me={user.id} peerId={selected} peer={supportChats?.find((u) => u.id === selected)} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+              Выберите обращение для ответа
+            </div>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function UserChat({
+  user,
+  profile,
+  selected,
+  setSelected,
+}: {
+  user: { id: string };
+  profile: any;
+  selected: string | null;
+  setSelected: (id: string | null) => void;
+}) {
+  const { data: superAdmin } = useQuery({
+    queryKey: ["super-admin-id"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "super_admin")
+        .limit(1)
+        .maybeSingle();
+      if (!data) return null;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .eq("id", data.user_id)
+        .maybeSingle();
+      return profile as OrgUser | null;
+    },
+  });
 
   const { data: users } = useQuery({
     queryKey: ["org-users", profile?.org_id],
@@ -55,22 +208,48 @@ function ChatPage() {
     },
   });
 
+  const isSupportSelected = selected && superAdmin && selected === superAdmin.id;
+
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-3.5rem)]">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
           <div className="border-b border-border p-4">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <MessageSquare className="h-3.5 w-3.5" /> Личные сообщения
+              <MessageSquare className="h-3.5 w-3.5" /> Чат
             </div>
-            <div className="mt-1 text-sm font-semibold text-foreground">
+          </div>
+
+          {superAdmin && (
+            <div className="border-b border-border p-2">
+              <button
+                onClick={() => setSelected(superAdmin.id)}
+                className={`flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition ${
+                  isSupportSelected
+                    ? "bg-brand/10 text-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                }`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/20 text-xs font-semibold text-brand">
+                  <Headphones className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium text-foreground">Техподдержка</div>
+                  <div className="truncate text-[11px] text-muted-foreground">Написать администратору</div>
+                </div>
+              </button>
+            </div>
+          )}
+
+          <div className="p-2">
+            <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">
               Сотрудники организации
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {!profile?.org_id && (
               <div className="p-4 text-xs text-muted-foreground">
-                Вы не привязаны к организации. Обратитесь к администратору.
+                Вы не привязаны к организации.
               </div>
             )}
             {(users ?? []).map((u) => (
@@ -78,7 +257,9 @@ function ChatPage() {
                 key={u.id}
                 onClick={() => setSelected(u.id)}
                 className={`flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition ${
-                  selected === u.id ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                  selected === u.id && !isSupportSelected
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 }`}
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
@@ -98,7 +279,11 @@ function ChatPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {selected && user ? (
-            <ChatThread me={user.id} peerId={selected} peer={users?.find((u) => u.id === selected)} />
+            <ChatThread
+              me={user.id}
+              peerId={selected}
+              peer={isSupportSelected ? superAdmin : users?.find((u) => u.id === selected)}
+            />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Выберите собеседника, чтобы начать диалог
@@ -110,7 +295,15 @@ function ChatPage() {
   );
 }
 
-function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: OrgUser }) {
+function ChatThread({
+  me,
+  peerId,
+  peer,
+}: {
+  me: string;
+  peerId: string;
+  peer?: OrgUser | null;
+}) {
   const qc = useQueryClient();
   const queryKey = useMemo(() => ["messages", me, peerId], [me, peerId]);
   const { data: messages = [] } = useQuery({
@@ -119,8 +312,10 @@ function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: O
       const { data, error } = await supabase
         .from("messages")
         .select("*")
-        .or(`and(sender_id.eq.${me},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${me})`)
-        .order("created_at", { ascending: true })
+        .or(
+          `and(sender_id.eq.${me},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${me})`
+        )
+        .order("inserted_at", { ascending: true })
         .limit(500);
       if (error) throw error;
       return (data as Message[]) ?? [];
@@ -135,15 +330,19 @@ function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: O
   useEffect(() => {
     const ch = supabase
       .channel(`dm-${[me, peerId].sort().join("-")}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
-        const m = payload.new as Message;
-        if (
-          (m.sender_id === me && m.recipient_id === peerId) ||
-          (m.sender_id === peerId && m.recipient_id === me)
-        ) {
-          qc.setQueryData<Message[]>(queryKey, (prev) => (prev ? [...prev, m] : [m]));
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const m = payload.new as Message;
+          if (
+            (m.sender_id === me && m.recipient_id === peerId) ||
+            (m.sender_id === peerId && m.recipient_id === me)
+          ) {
+            qc.setQueryData<Message[]>(queryKey, (prev) => (prev ? [...prev, m] : [m]));
+          }
         }
-      })
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -165,6 +364,7 @@ function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: O
     const { error } = await supabase.from("messages").insert({
       sender_id: me,
       recipient_id: peerId,
+      content: body.trim() || "",
       body: body.trim() || null,
       attachment_url: attachment?.url ?? null,
       attachment_name: attachment?.name ?? null,
@@ -203,7 +403,15 @@ function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: O
     <>
       <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-          {peer ? initials(peer.full_name, peer.email) : "?"}
+          {peer ? (
+            peer.id === peerId && peer.full_name === undefined ? (
+              <Headphones className="h-4 w-4" />
+            ) : (
+              initials(peer.full_name, peer.email)
+            )
+          ) : (
+            "?"
+          )}
         </div>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-foreground">
@@ -258,7 +466,7 @@ function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: O
         />
         <button
           type="submit"
-          disabled={busy || (!body.trim())}
+          disabled={busy || !body.trim()}
           className="ring-focus inline-flex h-9 items-center gap-1.5 rounded-md bg-brand px-3 text-sm font-semibold text-brand-foreground hover:bg-brand-glow disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -270,6 +478,7 @@ function ChatThread({ me, peerId, peer }: { me: string; peerId: string; peer?: O
 }
 
 function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
+  const text = m.body || m.content;
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
@@ -279,10 +488,15 @@ function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
             : "bg-surface text-foreground border border-border"
         }`}
       >
-        {m.body && <div className="whitespace-pre-wrap break-words">{m.body}</div>}
+        {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
         {m.attachment_url && <Attachment m={m} mine={mine} />}
-        <div className={`mt-1 text-[10px] ${mine ? "text-brand-foreground/70" : "text-muted-foreground"}`}>
-          {new Date(m.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+        <div
+          className={`mt-1 text-[10px] ${mine ? "text-brand-foreground/70" : "text-muted-foreground"}`}
+        >
+          {new Date(m.inserted_at || m.created_at).toLocaleTimeString("ru-RU", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </div>
       </div>
     </div>
@@ -309,7 +523,11 @@ function Attachment({ m, mine }: { m: Message; mine: boolean }) {
   if (isImage && url) {
     return (
       <a href={url} target="_blank" rel="noreferrer" className="mt-1 block">
-        <img src={url} alt={m.attachment_name ?? ""} className="max-h-64 rounded-md border border-border object-cover" />
+        <img
+          src={url}
+          alt={m.attachment_name ?? ""}
+          className="max-h-64 rounded-md border border-border object-cover"
+        />
       </a>
     );
   }
