@@ -10,7 +10,7 @@ BEGIN
     CREATE ROLE authenticated NOLOGIN;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN;
+    CREATE ROLE service_role NOLOGIN BYPASSRLS;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
     CREATE ROLE supabase_auth_admin NOLOGIN CREATEROLE CREATEDB;
@@ -49,18 +49,38 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA _realtime GRANT ALL ON TABLES TO postgres;
 
 GRANT ALL ON SCHEMA public TO postgres;
 
-CREATE TABLE IF NOT EXISTS public.messages (
-  id BIGSERIAL PRIMARY KEY,
-  inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Fix postgres search_path so GoTrue can find auth tables
+ALTER ROLE postgres SET search_path TO auth, public, realtime;
 
-CREATE TABLE IF NOT EXISTS public.schema_migrations (
-  version BIGINT PRIMARY KEY,
-  inserted_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-);
+-- Ensure auth.schema_migrations has inserted_at column
+-- (needed because postgres search_path resolves schema_migrations to auth first,
+-- and Supabase Realtime Ecto migrations need inserted_at)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'schema_migrations')
+     AND NOT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'schema_migrations' AND column_name = 'inserted_at')
+  THEN
+    ALTER TABLE auth.schema_migrations ADD COLUMN inserted_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW();
+    ALTER TABLE auth.schema_migrations ALTER COLUMN version TYPE BIGINT USING version::BIGINT;
+  END IF;
+END
+$$;
 
-CREATE PUBLICATION supabase_realtime FOR TABLE public.messages;
-
-GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+-- Grant EXECUTE on RLS helper functions to authenticated role
+-- (RLS policies call is_super_admin(), has_role(), etc. as the authenticated user)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_proc WHERE proname = 'is_super_admin') THEN
+    GRANT EXECUTE ON FUNCTION is_super_admin(uuid) TO authenticated;
+  END IF;
+  IF EXISTS (SELECT FROM pg_proc WHERE proname = 'has_role') THEN
+    GRANT EXECUTE ON FUNCTION has_role(uuid, app_role) TO authenticated;
+  END IF;
+  IF EXISTS (SELECT FROM pg_proc WHERE proname = 'is_org_admin') THEN
+    GRANT EXECUTE ON FUNCTION is_org_admin(uuid, uuid) TO authenticated;
+  END IF;
+  IF EXISTS (SELECT FROM pg_proc WHERE proname = 'get_user_org') THEN
+    GRANT EXECUTE ON FUNCTION get_user_org(uuid) TO authenticated;
+  END IF;
+END
+$$;
