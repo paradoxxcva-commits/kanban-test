@@ -127,6 +127,10 @@ create policy "roles: org admin read org" on public.user_roles
   for select to authenticated
   using (org_id is not null and public.is_org_admin(auth.uid(), org_id));
 
+create policy "roles: read super_admin for support" on public.user_roles
+  for select to authenticated
+  using (role = 'super_admin');
+
 -- ============ BOARDS ============
 create table public.boards (
   id uuid primary key default gen_random_uuid(),
