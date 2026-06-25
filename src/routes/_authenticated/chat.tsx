@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { useAuth } from "@/lib/auth-context";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones } from "lucide-react";
@@ -37,7 +37,44 @@ interface Message {
 
 function initials(name: string | null, email: string) {
   const src = (name && name.trim()) || email;
-  return src.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
+  return src
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+}
+
+function getLastRead(peerId: string): string | null {
+  try {
+    return localStorage.getItem(`chat_read_${peerId}`);
+  } catch {
+    return null;
+  }
+}
+
+function setLastRead(peerId: string) {
+  try {
+    localStorage.setItem(`chat_read_${peerId}`, new Date().toISOString());
+  } catch {}
+}
+
+function Badge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-brand-foreground tabular-nums">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+function useUnreadCount(meId: string, peerId: string, messages: Message[]) {
+  const lastRead = getLastRead(peerId);
+  return useMemo(() => {
+    if (!lastRead) return messages.filter((m) => m.sender_id !== meId).length;
+    const ts = new Date(lastRead).getTime();
+    return messages.filter((m) => m.sender_id !== meId && new Date(m.inserted_at).getTime() > ts).length;
+  }, [lastRead, messages, meId]);
 }
 
 function ChatPage() {
@@ -46,9 +83,23 @@ function ChatPage() {
   const [selected, setSelected] = useState<string | null>(null);
 
   if (isSuperAdmin) {
-    return <SuperAdminChat user={user!} profile={profile} selected={selected} setSelected={setSelected} />;
+    return (
+      <SuperAdminChat
+        user={user!}
+        profile={profile}
+        selected={selected}
+        setSelected={setSelected}
+      />
+    );
   }
-  return <UserChat user={user!} profile={profile} selected={selected} setSelected={setSelected} />;
+  return (
+    <UserChat
+      user={user!}
+      profile={profile}
+      selected={selected}
+      setSelected={setSelected}
+    />
+  );
 }
 
 function SuperAdminChat({
@@ -65,23 +116,15 @@ function SuperAdminChat({
   const { data: supportChats } = useQuery({
     queryKey: ["support-chats", user.id],
     queryFn: async () => {
-      const { data: sent } = await supabase
-        .from("messages")
-        .select("sender_id, recipient_id")
-        .eq("recipient_id", user.id)
-        .order("inserted_at", { ascending: false });
       const { data: received } = await supabase
         .from("messages")
-        .select("sender_id, recipient_id")
-        .eq("sender_id", user.id)
+        .select("sender_id, recipient_id, inserted_at")
+        .eq("recipient_id", user.id)
         .order("inserted_at", { ascending: false });
 
       const peerIds = new Set<string>();
-      (sent ?? []).forEach((m) => {
-        if (m.sender_id !== user.id) peerIds.add(m.sender_id);
-      });
       (received ?? []).forEach((m) => {
-        if (m.recipient_id !== user.id) peerIds.add(m.recipient_id);
+        if (m.sender_id !== user.id) peerIds.add(m.sender_id);
       });
 
       if (peerIds.size === 0) return [];
@@ -91,7 +134,9 @@ function SuperAdminChat({
         .select("id, email, full_name, org_id")
         .in("id", Array.from(peerIds));
 
-      const orgIds = [...new Set((profiles ?? []).map((p) => p.org_id).filter(Boolean))];
+      const orgIds = [
+        ...new Set((profiles ?? []).map((p) => p.org_id).filter(Boolean)),
+      ];
       let orgNames: Record<string, string> = {};
       if (orgIds.length > 0) {
         const { data: orgs } = await supabase
@@ -107,6 +152,31 @@ function SuperAdminChat({
       }));
     },
   });
+
+  const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!supportChats || !user) return;
+    let cancelled = false;
+    (async () => {
+      const results: Record<string, number> = {};
+      for (const chat of supportChats) {
+        const lastRead = getLastRead(chat.id);
+        const ts = lastRead ? new Date(lastRead).getTime() : 0;
+        const { count } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("sender_id", chat.id)
+          .eq("recipient_id", user.id)
+          .gt("inserted_at", new Date(ts).toISOString());
+        results[chat.id] = count ?? 0;
+      }
+      if (!cancelled) setUnreadMap(results);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supportChats, user]);
 
   return (
     <AppShell>
@@ -131,11 +201,18 @@ function SuperAdminChat({
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 }`}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
                   {initials(u.full_name, u.email)}
+                  {(unreadMap[u.id] ?? 0) > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                      {unreadMap[u.id]}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-foreground">{u.full_name || u.email}</div>
+                  <div className="truncate text-foreground">
+                    {u.full_name || u.email}
+                  </div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     {u.org_name ? `${u.org_name} · ` : ""}
                     {u.email}
@@ -144,14 +221,24 @@ function SuperAdminChat({
               </button>
             ))}
             {supportChats?.length === 0 && (
-              <div className="p-4 text-xs text-muted-foreground">Обращений пока нет.</div>
+              <div className="p-4 text-xs text-muted-foreground">
+                Обращений пока нет.
+              </div>
             )}
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
           {selected && user ? (
-            <ChatThread me={user.id} peerId={selected} peer={supportChats?.find((u) => u.id === selected)} />
+            <ChatThread
+              me={user.id}
+              peerId={selected}
+              peer={supportChats?.find((u) => u.id === selected)}
+              onOpen={() => {
+                setLastRead(selected);
+                setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
+              }}
+            />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Выберите обращение для ответа
@@ -210,6 +297,38 @@ function UserChat({
 
   const isSupportSelected = selected && superAdmin && selected === superAdmin.id;
 
+  const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
+
+  const allContacts = useMemo(() => {
+    const list: OrgUser[] = [];
+    if (superAdmin) list.push(superAdmin);
+    list.push(...(users ?? []));
+    return list;
+  }, [superAdmin, users]);
+
+  useEffect(() => {
+    if (!allContacts.length || !user) return;
+    let cancelled = false;
+    (async () => {
+      const results: Record<string, number> = {};
+      for (const c of allContacts) {
+        const lastRead = getLastRead(c.id);
+        const ts = lastRead ? new Date(lastRead).getTime() : 0;
+        const { count } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("sender_id", c.id)
+          .eq("recipient_id", user.id)
+          .gt("inserted_at", new Date(ts).toISOString());
+        results[c.id] = count ?? 0;
+      }
+      if (!cancelled) setUnreadMap(results);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [allContacts, user]);
+
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-3.5rem)]">
@@ -230,12 +349,21 @@ function UserChat({
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 }`}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/20 text-xs font-semibold text-brand">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/20 text-xs font-semibold text-brand">
                   <Headphones className="h-4 w-4" />
+                  {(unreadMap[superAdmin.id] ?? 0) > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                      {unreadMap[superAdmin.id]}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium text-foreground">Техподдержка</div>
-                  <div className="truncate text-[11px] text-muted-foreground">Написать администратору</div>
+                  <div className="truncate font-medium text-foreground">
+                    Техподдержка
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    Написать администратору
+                  </div>
                 </div>
               </button>
             </div>
@@ -262,17 +390,28 @@ function UserChat({
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 }`}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
                   {initials(u.full_name, u.email)}
+                  {(unreadMap[u.id] ?? 0) > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                      {unreadMap[u.id]}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-foreground">{u.full_name || u.email}</div>
-                  <div className="truncate text-[11px] text-muted-foreground">{u.email}</div>
+                  <div className="truncate text-foreground">
+                    {u.full_name || u.email}
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {u.email}
+                  </div>
                 </div>
               </button>
             ))}
             {users?.length === 0 && (
-              <div className="p-4 text-xs text-muted-foreground">В организации пока только вы.</div>
+              <div className="p-4 text-xs text-muted-foreground">
+                В организации пока только вы.
+              </div>
             )}
           </div>
         </aside>
@@ -282,7 +421,15 @@ function UserChat({
             <ChatThread
               me={user.id}
               peerId={selected}
-              peer={isSupportSelected ? superAdmin : users?.find((u) => u.id === selected)}
+              peer={
+                isSupportSelected
+                  ? superAdmin
+                  : users?.find((u) => u.id === selected)
+              }
+              onOpen={() => {
+                setLastRead(selected);
+                setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
+              }}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -299,10 +446,12 @@ function ChatThread({
   me,
   peerId,
   peer,
+  onOpen,
 }: {
   me: string;
   peerId: string;
   peer?: OrgUser | null;
+  onOpen?: () => void;
 }) {
   const qc = useQueryClient();
   const queryKey = useMemo(() => ["messages", me, peerId], [me, peerId]);
@@ -322,6 +471,10 @@ function ChatThread({
     },
   });
 
+  useEffect(() => {
+    if (messages.length > 0) onOpen?.();
+  }, []);
+
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -339,7 +492,9 @@ function ChatThread({
             (m.sender_id === me && m.recipient_id === peerId) ||
             (m.sender_id === peerId && m.recipient_id === me)
           ) {
-            qc.setQueryData<Message[]>(queryKey, (prev) => (prev ? [...prev, m] : [m]));
+            qc.setQueryData<Message[]>(queryKey, (prev) =>
+              prev ? [...prev, m] : [m]
+            );
           }
         }
       )
@@ -389,7 +544,9 @@ function ChatThread({
     }
     setBusy(true);
     const path = `${me}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
-    const { error } = await supabase.storage.from("chat-attachments").upload(path, file);
+    const { error } = await supabase.storage
+      .from("chat-attachments")
+      .upload(path, file);
     if (error) {
       setBusy(false);
       toast.error("Ошибка загрузки", { description: error.message });
@@ -469,7 +626,11 @@ function ChatThread({
           disabled={busy || !body.trim()}
           className="ring-focus inline-flex h-9 items-center gap-1.5 rounded-md bg-brand px-3 text-sm font-semibold text-brand-foreground hover:bg-brand-glow disabled:opacity-60"
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
           Отправить
         </button>
       </form>
@@ -488,10 +649,14 @@ function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
             : "bg-surface text-foreground border border-border"
         }`}
       >
-        {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
+        {text && (
+          <div className="whitespace-pre-wrap break-words">{text}</div>
+        )}
         {m.attachment_url && <Attachment m={m} mine={mine} />}
         <div
-          className={`mt-1 text-[10px] ${mine ? "text-brand-foreground/70" : "text-muted-foreground"}`}
+          className={`mt-1 text-[10px] ${
+            mine ? "text-brand-foreground/70" : "text-muted-foreground"
+          }`}
         >
           {new Date(m.inserted_at || m.created_at).toLocaleTimeString("ru-RU", {
             hour: "2-digit",
@@ -537,7 +702,9 @@ function Attachment({ m, mine }: { m: Message; mine: boolean }) {
       target="_blank"
       rel="noreferrer"
       className={`mt-1 flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
-        mine ? "border-brand-foreground/30 bg-brand-foreground/10" : "border-border bg-background"
+        mine
+          ? "border-brand-foreground/30 bg-brand-foreground/10"
+          : "border-border bg-background"
       }`}
     >
       <FileText className="h-4 w-4 shrink-0" />
