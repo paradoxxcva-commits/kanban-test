@@ -469,6 +469,7 @@ function ChatThread({
       if (error) throw error;
       return (data as Message[]) ?? [];
     },
+    refetchInterval: 3000,
   });
 
   useEffect(() => {
