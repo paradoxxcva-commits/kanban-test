@@ -114,9 +114,8 @@ create policy "profiles: org admin manage org members" on public.profiles
   using (org_id is not null and public.is_org_admin(auth.uid(), org_id))
   with check (org_id is not null and public.is_org_admin(auth.uid(), org_id));
 
-create policy "profiles: read super_admin for support" on public.profiles
-  for select to authenticated
-  using (exists (select 1 from public.user_roles where user_id = id and role = 'super_admin'));
+create policy "profiles: read all" on public.profiles
+  for select to authenticated using (true);
 
 -- ============ POLICIES: user_roles ============
 create policy "roles: super_admin all" on public.user_roles
