@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { listComments, createComment, deleteComment, getAttachmentUrl, type CommentRow } from "@/lib/comments-api";
@@ -7,6 +7,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Paperclip, Send, Trash2, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+function getLastReadComment(taskId: string): string | null {
+  try {
+    return localStorage.getItem(`comment_read_${taskId}`);
+  } catch {
+    return null;
+  }
+}
+
+function setLastReadComment(taskId: string) {
+  try {
+    localStorage.setItem(`comment_read_${taskId}`, new Date().toISOString());
+  } catch {}
+}
+
+export function getUnreadCommentCount(taskId: string, comments: CommentRow[], userId: string): number {
+  const lastRead = getLastReadComment(taskId);
+  if (!lastRead) return comments.filter((c) => c.author_id !== userId).length;
+  const ts = new Date(lastRead).getTime();
+  return comments.filter((c) => c.author_id !== userId && new Date(c.created_at).getTime() > ts).length;
+}
 
 function initials(name: string | null, email: string) {
   const src = (name && name.trim()) || email;
@@ -35,6 +56,14 @@ export function TaskComments({ taskId }: { taskId: string }) {
     queryKey: ["comments", taskId],
     queryFn: () => listComments(taskId),
   });
+
+  // Mark comments as read when opened
+  useEffect(() => {
+    if (comments.length > 0 && user) {
+      setLastReadComment(taskId);
+      qc.invalidateQueries({ queryKey: ["unreadComments"] });
+    }
+  }, [comments.length, taskId, user, qc]);
 
   const createMut = useMutation({
     mutationFn: createComment,

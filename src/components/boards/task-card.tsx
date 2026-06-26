@@ -28,6 +28,7 @@ export function TaskCard({
   assigneeName,
   assigneeEmail,
   commentCount,
+  unreadCount,
   onClick,
   overlay,
 }: {
@@ -35,6 +36,7 @@ export function TaskCard({
   assigneeName?: string | null;
   assigneeEmail?: string | null;
   commentCount?: number;
+  unreadCount?: number;
   onClick?: () => void;
   overlay?: boolean;
 }) {
@@ -89,9 +91,14 @@ export function TaskCard({
             </span>
           )}
           {commentCount != null && commentCount > 0 && (
-            <span className="inline-flex items-center gap-1">
+            <span className={`inline-flex items-center gap-1 ${unreadCount != null && unreadCount > 0 ? "font-semibold text-brand" : ""}`}>
               <MessageSquare className="h-3 w-3" />
               {commentCount}
+              {unreadCount != null && unreadCount > 0 && (
+                <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                  {unreadCount}
+                </span>
+              )}
             </span>
           )}
         </div>

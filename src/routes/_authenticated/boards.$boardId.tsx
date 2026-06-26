@@ -105,24 +105,45 @@ function BoardPage() {
     return map;
   }, [tasks, data?.columns]);
 
-  // Fetch comment counts for all tasks on this board
+  // Fetch comment counts and full comments for unread tracking
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
-  const { data: commentCounts = {} } = useQuery({
+  const { data: commentsData = [] } = useQuery({
     queryKey: ["commentCounts", boardId],
     queryFn: async () => {
-      if (taskIds.length === 0) return {};
+      if (taskIds.length === 0) return [];
       const { data } = await supabase
         .from("task_comments")
-        .select("task_id")
+        .select("task_id, author_id, created_at")
         .in("task_id", taskIds);
-      const counts: Record<string, number> = {};
-      data?.forEach((c: any) => {
-        counts[c.task_id] = (counts[c.task_id] || 0) + 1;
-      });
-      return counts;
+      return data ?? [];
     },
     enabled: taskIds.length > 0,
   });
+
+  const commentCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    commentsData.forEach((c: any) => {
+      counts[c.task_id] = (counts[c.task_id] || 0) + 1;
+    });
+    return counts;
+  }, [commentsData]);
+
+  const unreadCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const lastReadCache: Record<string, string | null> = {};
+    taskIds.forEach((id) => {
+      const lastRead = lastReadCache[id] ?? (() => {
+        const v = localStorage.getItem(`comment_read_${id}`);
+        lastReadCache[id] = v;
+        return v;
+      })();
+      const ts = lastRead ? new Date(lastRead).getTime() : 0;
+      counts[id] = commentsData.filter((c: any) =>
+        c.task_id === id && c.author_id !== user?.id && new Date(c.created_at).getTime() > ts
+      ).length;
+    });
+    return counts;
+  }, [commentsData, taskIds, user?.id]);
 
   const persistMut = useMutation({
     mutationFn: persistOrder,
@@ -330,6 +351,7 @@ function BoardPage() {
                 onEditTask={openEditTask}
                 canManage={canManageBoard}
                 commentCounts={commentCounts}
+                unreadCounts={unreadCounts}
               />
             ))}
             {canManageBoard && (

@@ -32,7 +32,8 @@ import { toast } from "sonner";
 import { Trash2, Calendar, Loader2 } from "lucide-react";
 import { listCalendars, sendTaskToCalendar } from "@/lib/calendar.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TaskComments } from "./task-comments";
+import { TaskComments, getUnreadCommentCount } from "./task-comments";
+import type { CommentRow } from "@/lib/comments-api";
 
 interface Member {
   id: string;
@@ -74,6 +75,23 @@ export function TaskDialog({
   const qc = useQueryClient();
   const { profile, user } = useAuth();
   const isEdit = !!task;
+
+  // Unread comment count for the tab badge
+  const { data: dialogComments = [] } = useQuery({
+    queryKey: ["comments", task?.id],
+    queryFn: async () => {
+      if (!task) return [];
+      const { data } = await (supabase as any)
+        .from("task_comments")
+        .select("author_id, created_at")
+        .eq("task_id", task.id);
+      return (data ?? []) as Pick<CommentRow, "author_id" | "created_at">[];
+    },
+    enabled: !!task && isEdit,
+  });
+  const unreadCommentCount = task && user
+    ? getUnreadCommentCount(task.id, dialogComments as CommentRow[], user.id)
+    : 0;
 
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -324,7 +342,14 @@ export function TaskDialog({
           <Tabs defaultValue="task">
             <TabsList className="w-full">
               <TabsTrigger value="task" className="flex-1">Задача</TabsTrigger>
-              <TabsTrigger value="comments" className="flex-1">Комментарии</TabsTrigger>
+              <TabsTrigger value="comments" className="flex-1">
+                Комментарии
+                {unreadCommentCount > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-brand-foreground">
+                    {unreadCommentCount}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="task">{taskForm}</TabsContent>
             <TabsContent value="comments" className="pt-2">
