@@ -27,7 +27,11 @@ import {
   Loader2,
   Check,
   Calendar,
+  Link2,
+  Copy,
+  RotateCcw,
 } from "lucide-react";
+import { getOrCreateCalendarToken, revokeCalendarToken, getActiveCalendarToken } from "@/lib/calendar-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,6 +94,7 @@ function CalendarPage() {
   const [selectedCalendars, setSelectedCalendars] = useState<Set<string>>(new Set());
   const [createEventOpen, setCreateEventOpen] = useState(false);
   const [createCalendarOpen, setCreateCalendarOpen] = useState(false);
+  const [icalOpen, setIcalOpen] = useState(false);
   const [sendTaskOpen, setSendTaskOpen] = useState(false);
   const [taskToSend, setTaskToSend] = useState<TaskRow | null>(null);
   const [taskOpen, setTaskOpen] = useState(false);
@@ -232,6 +237,9 @@ function CalendarPage() {
             </button>
             <Button variant="outline" size="sm" onClick={() => setCreateEventOpen(true)}>
               <Plus className="h-4 w-4" /> Событие
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIcalOpen(true)}>
+              <Link2 className="h-4 w-4" /> iCal
             </Button>
             {canManageCalendars && profile?.org_id && (
               <Button variant="outline" size="sm" onClick={() => setCreateCalendarOpen(true)}>
@@ -398,6 +406,9 @@ function CalendarPage() {
           }}
         />
       )}
+
+      {/* iCal Dialog */}
+      <IcalDialog open={icalOpen} onOpenChange={setIcalOpen} userId={user?.id ?? null} />
 
       {/* Task Dialog */}
       {taskOpen && createColumns.length > 0 && (
@@ -684,6 +695,75 @@ function SendTaskToCalendarDialog({
             </Button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function IcalDialog({ open, onOpenChange, userId }: { open: boolean; onOpenChange: (v: boolean) => void; userId: string | null }) {
+  const tokenQ = useQuery({
+    queryKey: ["calendar-token", userId],
+    queryFn: () => (userId ? getActiveCalendarToken(userId) : Promise.resolve(null)),
+    enabled: !!userId && open,
+  });
+
+  const onCreate = async () => {
+    if (!userId) return;
+    await getOrCreateCalendarToken(userId);
+    tokenQ.refetch();
+  };
+  const onRevoke = async () => {
+    if (!tokenQ.data) return;
+    if (!confirm("Сбросить текущий токен? Старая ссылка перестанет работать.")) return;
+    await revokeCalendarToken(tokenQ.data.id);
+    tokenQ.refetch();
+  };
+
+  const url = tokenQ.data
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/api/public/ical/${tokenQ.data.token}`
+    : "";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>iCal-фид</DialogTitle>
+        </DialogHeader>
+        {tokenQ.data ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Защищённая ссылка для подписки в Яндекс.Календаре, Google Calendar или Apple. Включает все задачи ваших досок со сроком.
+            </p>
+            <div className="rounded-md border border-border bg-surface p-2 text-xs font-mono break-all text-foreground">
+              {url}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(url);
+                  toast.success("Ссылка скопирована");
+                }}
+              >
+                <Copy className="h-4 w-4" /> Скопировать
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onRevoke}>
+                <RotateCcw className="h-4 w-4" /> Сбросить
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              В Яндекс.Календаре: «Добавить календарь → По ссылке» — вставьте URL.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Ссылка ещё не создана.</p>
+            <Button size="sm" onClick={onCreate}>
+              <Link2 className="h-4 w-4" /> Создать ссылку
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
