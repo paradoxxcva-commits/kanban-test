@@ -129,6 +129,9 @@ export function AppSidebar() {
     { to: "/account", label: "Аккаунт", icon: UserCircle },
     { to: "/settings", label: "Настройки", icon: Settings },
   ];
+  if (hasRole("admin")) {
+    adminNav.push({ to: "/org-admin", label: "Админ организации", icon: Users });
+  }
   if (hasRole("super_admin")) {
     adminNav.push({ to: "/super-admin", label: "Системный админ", icon: Shield });
   }

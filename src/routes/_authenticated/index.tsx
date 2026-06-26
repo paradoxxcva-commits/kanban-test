@@ -50,7 +50,8 @@ function StatCard({ stat }: { stat: Stat }) {
 }
 
 function DashboardPage() {
-  const { profile, user } = useAuth();
+  const { profile, user, hasRole } = useAuth();
+  const canCreateBoard = hasRole("admin") || hasRole("super_admin");
 
   const { data: counts } = useQuery({
     queryKey: ["dashboard-counts"],
@@ -99,13 +100,15 @@ function DashboardPage() {
               Сводка по задачам и доскам вашей организации.
             </p>
           </div>
-          <Link
-            to="/boards"
-            className="ring-focus inline-flex items-center gap-1.5 rounded-md bg-brand px-3.5 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-glow"
-          >
-            <Plus className="h-4 w-4" />
-            Создать доску
-          </Link>
+          {canCreateBoard && (
+            <Link
+              to="/boards"
+              className="ring-focus inline-flex items-center gap-1.5 rounded-md bg-brand px-3.5 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-glow"
+            >
+              <Plus className="h-4 w-4" />
+              Создать доску
+            </Link>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

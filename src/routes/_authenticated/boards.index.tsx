@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { listBoards } from "@/lib/boards-api";
 import { CreateBoardDialog } from "@/components/boards/create-board-dialog";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_authenticated/boards/")({
   head: () => ({
@@ -28,6 +29,8 @@ const COLOR_MAP: Record<string, string> = {
 
 function BoardsPage() {
   const [open, setOpen] = useState(false);
+  const { hasRole } = useAuth();
+  const canCreateBoard = hasRole("admin") || hasRole("super_admin");
   const { data: boards, isLoading } = useQuery({
     queryKey: ["boards"],
     queryFn: listBoards,
@@ -48,10 +51,12 @@ function BoardsPage() {
               Все доски вашей организации.
             </p>
           </div>
-          <Button onClick={() => setOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            Создать доску
-          </Button>
+          {canCreateBoard && (
+            <Button onClick={() => setOpen(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Создать доску
+            </Button>
+          )}
         </div>
 
         {isLoading ? (
@@ -97,10 +102,12 @@ function BoardsPage() {
             <p className="max-w-sm text-sm text-muted-foreground">
               Создайте первую канбан-доску, чтобы организовать задачи команды.
             </p>
-            <Button onClick={() => setOpen(true)} className="mt-2 gap-1.5">
-              <Plus className="h-4 w-4" />
-              Создать доску
-            </Button>
+            {canCreateBoard && (
+              <Button onClick={() => setOpen(true)} className="mt-2 gap-1.5">
+                <Plus className="h-4 w-4" />
+                Создать доску
+              </Button>
+            )}
           </div>
         )}
       </div>

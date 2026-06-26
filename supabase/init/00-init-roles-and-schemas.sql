@@ -82,5 +82,8 @@ BEGIN
   IF EXISTS (SELECT FROM pg_proc WHERE proname = 'get_user_org') THEN
     GRANT EXECUTE ON FUNCTION get_user_org(uuid) TO authenticated;
   END IF;
+  IF EXISTS (SELECT FROM pg_proc WHERE proname = 'is_org_member') THEN
+    GRANT EXECUTE ON FUNCTION is_org_member(uuid, uuid) TO authenticated;
+  END IF;
 END
 $$;

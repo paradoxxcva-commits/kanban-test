@@ -29,7 +29,8 @@ import {
 } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, Calendar, Loader2 } from "lucide-react";
+import { listCalendars, sendTaskToCalendar } from "@/lib/calendar.functions";
 
 interface Member {
   id: string;
@@ -150,6 +151,30 @@ export function TaskDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Send to calendar
+  const [sendCalendarOpen, setSendCalendarOpen] = useState(false);
+  const [sendCalendarId, setSendCalendarId] = useState("");
+  const [sendBusy, setSendBusy] = useState(false);
+
+  const { data: calendars } = useQuery({
+    queryKey: ["calendars", profile?.org_id],
+    queryFn: () => listCalendars({ data: { orgId: profile!.org_id! } }),
+    enabled: !!profile?.org_id && sendCalendarOpen,
+  });
+
+  const onSendToCalendar = async () => {
+    if (!task || !sendCalendarId) return;
+    setSendBusy(true);
+    try {
+      await sendTaskToCalendar({ data: { taskId: task.id, calendarId: sendCalendarId } });
+      toast.success("Задание отправлено в календарь");
+      setSendCalendarOpen(false);
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+    setSendBusy(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -257,18 +282,29 @@ export function TaskDialog({
             </label>
           )}
           <DialogFooter className="gap-2 sm:gap-2">
-            {isEdit && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="mr-auto text-destructive hover:text-destructive"
-                onClick={() => {
-                  if (confirm("Удалить задачу?")) remove.mutate();
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-                Удалить
-              </Button>
+            {isEdit && task && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="mr-auto"
+                  onClick={() => setSendCalendarOpen(true)}
+                >
+                  <Calendar className="h-4 w-4" />
+                  В календарь
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    if (confirm("Удалить задачу?")) remove.mutate();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Удалить
+                </Button>
+              </>
             )}
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Отмена
@@ -279,6 +315,37 @@ export function TaskDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* Send to Calendar Modal */}
+      <Dialog open={sendCalendarOpen} onOpenChange={setSendCalendarOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Отправить в календарь</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Календарь</div>
+              <select
+                value={sendCalendarId}
+                onChange={(e) => setSendCalendarId(e.target.value)}
+                className="ring-focus block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Выберите календарь</option>
+                {calendars?.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setSendCalendarOpen(false)}>Отмена</Button>
+              <Button onClick={onSendToCalendar} disabled={sendBusy || !sendCalendarId}>
+                {sendBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
+                Отправить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

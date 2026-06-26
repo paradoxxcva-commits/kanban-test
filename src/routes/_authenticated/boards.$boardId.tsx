@@ -250,7 +250,7 @@ function BoardPage() {
     );
   }
 
-  const canManageBoard = hasRole("admin") || hasRole("super_admin") || data.board.created_by === profile?.id;
+  const canManageBoard = hasRole("admin") || hasRole("super_admin");
 
   return (
     <AppShell>
@@ -271,10 +271,12 @@ function BoardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setAddColumnOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Колонка
-            </Button>
+            {canManageBoard && (
+              <Button variant="secondary" onClick={() => setAddColumnOpen(true)} className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                Колонка
+              </Button>
+            )}
             {canManageBoard && (
               <Button
                 variant="ghost"
@@ -307,16 +309,19 @@ function BoardPage() {
                 members={members ?? []}
                 onAddTask={openCreateTask}
                 onEditTask={openEditTask}
+                canManage={canManageBoard}
               />
             ))}
-            <button
-              type="button"
-              onClick={() => setAddColumnOpen(true)}
-              className="flex h-12 w-[300px] shrink-0 items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
-            >
-              <Plus className="h-4 w-4" />
-              Новая колонка
-            </button>
+            {canManageBoard && (
+              <button
+                type="button"
+                onClick={() => setAddColumnOpen(true)}
+                className="flex h-12 w-[300px] shrink-0 items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
+              >
+                <Plus className="h-4 w-4" />
+                Новая колонка
+              </button>
+            )}
           </div>
           <DragOverlay>
             {activeTask ? <TaskCard task={activeTask} overlay /> : null}

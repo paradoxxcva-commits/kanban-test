@@ -28,6 +28,7 @@ export function KanbanColumn({
   members,
   onAddTask,
   onEditTask,
+  canManage = false,
 }: {
   column: ColumnRow;
   tasks: TaskRow[];
@@ -35,6 +36,7 @@ export function KanbanColumn({
   members: Member[];
   onAddTask: (columnId: string) => void;
   onEditTask: (task: TaskRow) => void;
+  canManage?: boolean;
 }) {
   const qc = useQueryClient();
   const { setNodeRef, isOver } = useDroppable({
@@ -97,33 +99,35 @@ export function KanbanColumn({
           >
             <Plus className="h-4 w-4" />
           </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                aria-label="Действия с колонкой"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditing(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Переименовать
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => {
-                  if (confirm(`Удалить колонку «${column.name}»? Задачи будут перемещены.`))
-                    deleteMut.mutate();
-                }}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Удалить
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  aria-label="Действия с колонкой"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditing(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Переименовать
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    if (confirm(`Удалить колонку «${column.name}»? Задачи будут перемещены.`))
+                      deleteMut.mutate();
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Удалить
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 

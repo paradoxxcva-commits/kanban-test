@@ -16,10 +16,12 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
+import { Route as AuthenticatedOrgAdminRouteImport } from './routes/_authenticated/org-admin'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedBoardsIndexRouteImport } from './routes/_authenticated/boards.index'
 import { Route as AuthenticatedBoardsBoardIdRouteImport } from './routes/_authenticated/boards.$boardId'
 import { Route as ApiPublicIcalTokenRouteImport } from './routes/api/public/ical.$token'
@@ -53,6 +55,11 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedOrgAdminRoute = AuthenticatedOrgAdminRouteImport.update({
+  id: '/org-admin',
+  path: '/org-admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedSuperAdminRoute = AuthenticatedSuperAdminRouteImport.update({
   id: '/super-admin',
   path: '/super-admin',
@@ -76,6 +83,11 @@ const AuthenticatedBoardsRoute = AuthenticatedBoardsRouteImport.update({
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedBoardsIndexRoute =
@@ -102,11 +114,13 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/suspended': typeof SuspendedRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/org-admin': typeof AuthenticatedOrgAdminRoute
   '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards/': typeof AuthenticatedBoardsIndexRoute
   '/api/public/ical/$token': typeof ApiPublicIcalTokenRoute
@@ -116,10 +130,12 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/suspended': typeof SuspendedRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/org-admin': typeof AuthenticatedOrgAdminRoute
   '/': typeof AuthenticatedIndexRoute
   '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards': typeof AuthenticatedBoardsIndexRoute
@@ -132,11 +148,13 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/suspended': typeof SuspendedRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/org-admin': typeof AuthenticatedOrgAdminRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/_authenticated/boards/': typeof AuthenticatedBoardsIndexRoute
@@ -150,11 +168,13 @@ export interface FileRouteTypes {
     | '/setup'
     | '/suspended'
     | '/account'
+    | '/settings'
     | '/boards'
     | '/calendar'
     | '/chat'
     | '/super-admin'
     | '/team'
+    | '/org-admin'
     | '/boards/$boardId'
     | '/boards/'
     | '/api/public/ical/$token'
@@ -164,10 +184,12 @@ export interface FileRouteTypes {
     | '/setup'
     | '/suspended'
     | '/account'
+    | '/settings'
     | '/calendar'
     | '/chat'
     | '/super-admin'
     | '/team'
+    | '/org-admin'
     | '/'
     | '/boards/$boardId'
     | '/boards'
@@ -179,11 +201,13 @@ export interface FileRouteTypes {
     | '/setup'
     | '/suspended'
     | '/_authenticated/account'
+    | '/_authenticated/settings'
     | '/_authenticated/boards'
     | '/_authenticated/calendar'
     | '/_authenticated/chat'
     | '/_authenticated/super-admin'
     | '/_authenticated/team'
+    | '/_authenticated/org-admin'
     | '/_authenticated/'
     | '/_authenticated/boards/$boardId'
     | '/_authenticated/boards/'
@@ -242,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/org-admin': {
+      id: '/_authenticated/org-admin'
+      path: '/org-admin'
+      fullPath: '/org-admin'
+      preLoaderRoute: typeof AuthenticatedOrgAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/super-admin': {
       id: '/_authenticated/super-admin'
       path: '/super-admin'
@@ -275,6 +306,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/boards/': {
@@ -316,21 +354,25 @@ const AuthenticatedBoardsRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedBoardsRoute: typeof AuthenticatedBoardsRouteWithChildren
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedOrgAdminRoute: typeof AuthenticatedOrgAdminRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedBoardsRoute: AuthenticatedBoardsRouteWithChildren,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedOrgAdminRoute: AuthenticatedOrgAdminRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
