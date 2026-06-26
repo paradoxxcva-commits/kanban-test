@@ -55,7 +55,7 @@ function BoardPage() {
   const { boardId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { profile, hasRole } = useAuth();
+  const { profile, user, hasRole } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ["board", boardId],
@@ -111,7 +111,7 @@ function BoardPage() {
     queryKey: ["commentCounts", boardId],
     queryFn: async () => {
       if (taskIds.length === 0) return [];
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("task_comments")
         .select("task_id, author_id, created_at")
         .in("task_id", taskIds);
