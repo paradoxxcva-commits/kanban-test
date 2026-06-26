@@ -9,6 +9,8 @@ import {
   deleteCalendar,
   listCalendarEvents,
   createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
   sendTaskToCalendar,
   removeTaskFromCalendar,
   getTaskCalendarStatus,
@@ -30,6 +32,7 @@ import {
   Link2,
   Copy,
   RotateCcw,
+  Pencil,
 } from "lucide-react";
 import { getOrCreateCalendarToken, revokeCalendarToken, getActiveCalendarToken } from "@/lib/calendar-api";
 import { Button } from "@/components/ui/button";
@@ -96,6 +99,7 @@ function CalendarPage() {
   const [createCalendarOpen, setCreateCalendarOpen] = useState(false);
   const [icalOpen, setIcalOpen] = useState(false);
   const [sendTaskOpen, setSendTaskOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [taskToSend, setTaskToSend] = useState<TaskRow | null>(null);
   const [taskOpen, setTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
@@ -308,6 +312,19 @@ function CalendarPage() {
                 return (
                   <div
                     key={idx}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const eventId = e.dataTransfer.getData("event-id");
+                      if (eventId) {
+                        updateCalendarEvent({
+                          data: {
+                            eventId,
+                            startTime: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0).toISOString(),
+                          },
+                        }).then(() => eventsQ.refetch());
+                      }
+                    }}
                     className={`group relative min-h-[110px] border-b border-r border-border p-1.5 ${
                       inMonth ? "bg-background" : "bg-surface/40"
                     }`}
@@ -330,14 +347,20 @@ function CalendarPage() {
                       {items.events.slice(0, 2).map((e) => {
                         const cal = calendarsQ.data?.find((c: any) => c.id === e.calendar_id);
                         return (
-                          <div
+                          <button
                             key={e.id}
-                            className={`flex items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] text-white ${COLOR_MAP[cal?.color ?? "brand"] ?? COLOR_MAP.brand}`}
+                            draggable
+                            onDragStart={(ev) => {
+                              ev.dataTransfer.setData("event-id", e.id);
+                              ev.dataTransfer.effectAllowed = "move";
+                            }}
+                            onClick={() => setSelectedEvent(e)}
+                            className={`flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] text-white cursor-grab active:cursor-grabbing ${COLOR_MAP[cal?.color ?? "brand"] ?? COLOR_MAP.brand}`}
                             title={e.title}
                           >
                             <Calendar className="h-3 w-3 shrink-0" />
                             <span className="truncate">{e.title}</span>
-                          </div>
+                          </button>
                         );
                       })}
                       {/* Tasks */}
@@ -409,6 +432,23 @@ function CalendarPage() {
 
       {/* iCal Dialog */}
       <IcalDialog open={icalOpen} onOpenChange={setIcalOpen} userId={user?.id ?? null} />
+
+      {/* Event Detail Dialog */}
+      {selectedEvent && (
+        <EventDetailDialog
+          event={selectedEvent}
+          calendars={calendarsQ.data ?? []}
+          onClose={() => setSelectedEvent(null)}
+          onUpdated={() => {
+            setSelectedEvent(null);
+            eventsQ.refetch();
+          }}
+          onDeleted={() => {
+            setSelectedEvent(null);
+            eventsQ.refetch();
+          }}
+        />
+      )}
 
       {/* Task Dialog */}
       {taskOpen && createColumns.length > 0 && (
@@ -762,6 +802,176 @@ function IcalDialog({ open, onOpenChange, userId }: { open: boolean; onOpenChang
             <Button size="sm" onClick={onCreate}>
               <Link2 className="h-4 w-4" /> Создать ссылку
             </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EventDetailDialog({
+  event,
+  calendars,
+  onClose,
+  onUpdated,
+  onDeleted,
+}: {
+  event: any;
+  calendars: any[];
+  onClose: () => void;
+  onUpdated: () => void;
+  onDeleted: () => void;
+}) {
+  const updateEvent = useServerFn(updateCalendarEvent);
+  const deleteEvent = useServerFn(deleteCalendarEvent);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    title: event.title ?? "",
+    description: event.description ?? "",
+    startTime: event.start_time ? new Date(event.start_time).toISOString().slice(0, 16) : "",
+    endTime: event.end_time ? new Date(event.end_time).toISOString().slice(0, 16) : "",
+    allDay: event.all_day ?? false,
+  });
+  const [busy, setBusy] = useState(false);
+
+  const cal = calendars.find((c: any) => c.id === event.calendar_id);
+
+  const onSave = async () => {
+    setBusy(true);
+    try {
+      await updateEvent({
+        data: {
+          eventId: event.id,
+          title: form.title,
+          description: form.description || undefined,
+          startTime: form.allDay
+            ? new Date(event.start_time).toISOString().slice(0, 10) + "T09:00"
+            : new Date(form.startTime).toISOString(),
+          endTime: form.endTime ? new Date(form.endTime).toISOString() : undefined,
+          allDay: form.allDay,
+        },
+      });
+      toast.success("Событие обновлено");
+      onUpdated();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+    setBusy(false);
+  };
+
+  const onDelete = async () => {
+    if (!confirm("Удалить событие?")) return;
+    setBusy(true);
+    try {
+      await deleteEvent({ data: { eventId: event.id } });
+      toast.success("Событие удалено");
+      onDeleted();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+    setBusy(false);
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Редактировать событие" : "Событие"}</DialogTitle>
+        </DialogHeader>
+        {editing ? (
+          <div className="space-y-3">
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Название</div>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Описание</div>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="ring-focus block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.allDay}
+                onChange={(e) => setForm({ ...form, allDay: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-foreground">Весь день</span>
+            </div>
+            {!form.allDay && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Начало</div>
+                  <input
+                    type="datetime-local"
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    className="ring-focus block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Конец</div>
+                  <input
+                    type="datetime-local"
+                    value={form.endTime}
+                    onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                    className="ring-focus block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setEditing(false)}>Отмена</Button>
+              <Button onClick={onSave} disabled={busy}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Сохранить
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {cal && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className={`h-3 w-3 rounded-full ${COLOR_MAP[cal.color ?? "brand"] ?? COLOR_MAP.brand}`} />
+                {cal.name}
+              </div>
+            )}
+            <div className="text-lg font-semibold text-foreground">{event.title}</div>
+            {event.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{event.description}</p>
+            )}
+            <div className="text-sm text-muted-foreground">
+              {event.all_day ? (
+                <span>Весь день — {new Date(event.start_time).toLocaleDateString("ru-RU")}</span>
+              ) : (
+                <span>
+                  {new Date(event.start_time).toLocaleString("ru-RU", { dateStyle: "medium", timeStyle: "short" })}
+                  {event.end_time && (
+                    <> — {new Date(event.end_time).toLocaleString("ru-RU", { dateStyle: "medium", timeStyle: "short" })}</>
+                  )}
+                </span>
+              )}
+            </div>
+            {event.task_id && (
+              <div className="rounded-md bg-accent/60 px-3 py-2 text-xs text-muted-foreground">
+                Привязано к заданию
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={onDelete} disabled={busy}>
+                <Trash2 className="h-4 w-4" /> Удалить
+              </Button>
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                <Pencil className="h-4 w-4" /> Редактировать
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>
