@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones } from "lucide-react";
+import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -481,6 +481,28 @@ function ChatThread({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  // Mark messages as read when viewing conversation
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const unreadMessages = messages.filter(
+      (m) => m.sender_id === peerId && m.recipient_id === me && !m.read_at
+    );
+    if (unreadMessages.length === 0) return;
+
+    const ids = unreadMessages.map((m) => m.id);
+    supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .in("id", ids)
+      .then(() => {
+        qc.setQueryData<Message[]>(queryKey, (prev) =>
+          prev?.map((m) =>
+            ids.includes(m.id) ? { ...m, read_at: new Date().toISOString() } : m
+          )
+        );
+      });
+  }, [messages, me, peerId, qc, queryKey]);
+
   useEffect(() => {
     const ch = supabase
       .channel(`dm-${[me, peerId].sort().join("-")}`)
@@ -655,14 +677,25 @@ function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
         )}
         {m.attachment_url && <Attachment m={m} mine={mine} />}
         <div
-          className={`mt-1 text-[10px] ${
+          className={`mt-1 flex items-center gap-1 text-[10px] ${
             mine ? "text-brand-foreground/70" : "text-muted-foreground"
           }`}
         >
-          {new Date(m.inserted_at || m.created_at).toLocaleTimeString("ru-RU", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          <span>
+            {new Date(m.inserted_at || m.created_at).toLocaleTimeString("ru-RU", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+          {mine && (
+            <span className="inline-flex">
+              {m.read_at ? (
+                <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+            </span>
+          )}
         </div>
       </div>
     </div>
