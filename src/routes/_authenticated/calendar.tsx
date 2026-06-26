@@ -19,6 +19,7 @@ import { listBoards, listColumns, type ColumnRow } from "@/lib/boards-api";
 import { TaskDialog } from "@/components/boards/task-dialog";
 import type { TaskRow } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ChevronLeft,
   ChevronRight,
@@ -90,7 +91,7 @@ function sameDay(a: Date, b: Date) {
 }
 
 function CalendarPage() {
-  const { profile, hasRole } = useAuth();
+  const { profile, user, hasRole } = useAuth();
   const canManageCalendars = hasRole("admin") || hasRole("super_admin");
   const qc = useQueryClient();
 
@@ -146,7 +147,6 @@ function CalendarPage() {
   const tasksQ = useQuery({
     queryKey: ["calendar-tasks", gridStart.toISOString(), gridEnd.toISOString()],
     queryFn: async () => {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data } = await supabase
         .from("tasks")
         .select("*")
