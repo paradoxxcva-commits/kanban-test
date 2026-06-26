@@ -19,7 +19,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/super-admin")({
-  head: () => ({ meta: [{ title: "Системный администратор — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Системный администратор — Планка" }] }),
   component: SuperAdminPage,
 });
 

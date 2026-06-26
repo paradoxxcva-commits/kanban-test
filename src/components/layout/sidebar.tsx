@@ -151,7 +151,7 @@ export function AppSidebar() {
           <KanbanSquare className="h-4 w-4" />
         </div>
         <div className="flex flex-col leading-none">
-          <span className="text-sm font-bold tracking-tight text-sidebar-foreground">Канбан</span>
+          <span className="text-sm font-bold tracking-tight text-sidebar-foreground">Планка</span>
           <span className="text-[10px] uppercase tracking-wider text-sidebar-muted">workspace</span>
         </div>
       </div>

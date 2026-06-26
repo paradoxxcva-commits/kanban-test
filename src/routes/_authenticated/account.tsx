@@ -14,7 +14,7 @@ import {
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/account")({
-  head: () => ({ meta: [{ title: "Аккаунт — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Аккаунт — Планка" }] }),
   component: AccountPage,
 });
 

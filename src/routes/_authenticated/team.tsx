@@ -38,7 +38,7 @@ const ROLE_LABEL: Record<Role, string> = {
 };
 
 export const Route = createFileRoute("/_authenticated/team")({
-  head: () => ({ meta: [{ title: "Команда — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Команда — Планка" }] }),
   component: TeamPage,
 });
 

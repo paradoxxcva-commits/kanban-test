@@ -7,7 +7,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Вход — Канбан" },
+      { title: "Вход — Планка" },
       { name: "description", content: "Войдите в систему управления задачами." },
     ],
   }),
@@ -42,7 +42,7 @@ function LoginPage() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-brand-foreground shadow-brand">
             <KanbanSquare className="h-6 w-6" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Канбан</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Планка</h1>
           <p className="mt-1 text-sm text-muted-foreground">Войдите в свою рабочую область</p>
         </div>
 
@@ -94,7 +94,7 @@ function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-[11px] text-muted-foreground">
-          © {new Date().getFullYear()} Канбан · Безопасный вход через зашифрованное соединение
+          © {new Date().getFullYear()} Планка · Безопасный вход через зашифрованное соединение
         </p>
       </div>
     </div>

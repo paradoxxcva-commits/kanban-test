@@ -79,7 +79,7 @@ export const Route = createFileRoute("/api/public/ical/$token")({
           "PRODID:-//Kanban//Tasks//RU",
           "CALSCALE:GREGORIAN",
           "METHOD:PUBLISH",
-          `X-WR-CALNAME:${esc("Канбан — задачи")}`,
+          `X-WR-CALNAME:${esc("Планка — задачи")}`,
         ];
 
         for (const t of tasks) {

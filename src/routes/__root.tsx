@@ -77,10 +77,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Канбан — управление задачами" },
+      { title: "Планка — управление задачами" },
       { name: "description", content: "Лёгкая система управления проектами с досками и календарём." },
-      { name: "author", content: "Канбан" },
-      { property: "og:title", content: "Канбан — управление задачами" },
+      { name: "author", content: "Планка" },
+      { property: "og:title", content: "Планка — управление задачами" },
       { property: "og:description", content: "Лёгкая система управления проектами с досками и календарём." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

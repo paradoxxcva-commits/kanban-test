@@ -7,7 +7,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  head: () => ({ meta: [{ title: "Настройки — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Настройки — Планка" }] }),
   component: SettingsPage,
 });
 

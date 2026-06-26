@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 export const Route = createFileRoute("/_authenticated/boards/")({
   head: () => ({
     meta: [
-      { title: "Доски — Канбан" },
+      { title: "Доски — Планка" },
       { name: "description", content: "Список канбан-досок организации." },
     ],
   }),
@@ -42,7 +42,7 @@ function BoardsPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Канбан
+              Планка
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
               Доски

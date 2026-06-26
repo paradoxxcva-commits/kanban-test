@@ -9,7 +9,7 @@ import { TasksChart } from "@/components/dashboard/tasks-chart";
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
-      { title: "Обзор — Канбан" },
+      { title: "Обзор — Планка" },
       { name: "description", content: "Сводка по задачам, доскам и активности команды." },
     ],
   }),

@@ -3,7 +3,7 @@ import { ShieldAlert, LogOut, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/suspended")({
-  head: () => ({ meta: [{ title: "Доступ ограничен — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Доступ ограничен — Планка" }] }),
   component: SuspendedPage,
 });
 

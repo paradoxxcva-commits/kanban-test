@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { listOrgMembers, inviteOrgMember, removeOrgMember } from "@/lib/org-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/org-admin")({
-  head: () => ({ meta: [{ title: "Админ организации — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Админ организации — Планка" }] }),
   component: OrgAdminPage,
 });
 

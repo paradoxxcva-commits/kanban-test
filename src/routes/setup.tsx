@@ -7,7 +7,7 @@ import { ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/setup")({
-  head: () => ({ meta: [{ title: "Первичная настройка — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Первичная настройка — Планка" }] }),
   component: SetupPage,
 });
 

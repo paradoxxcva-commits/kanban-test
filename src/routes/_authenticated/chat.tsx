@@ -8,7 +8,7 @@ import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones } from "l
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/chat")({
-  head: () => ({ meta: [{ title: "Чат — Канбан" }] }),
+  head: () => ({ meta: [{ title: "Чат — Планка" }] }),
   component: ChatPage,
 });
 
