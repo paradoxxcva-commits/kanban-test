@@ -33,6 +33,7 @@ import {
   Copy,
   RotateCcw,
   Pencil,
+  KanbanSquare,
 } from "lucide-react";
 import { getOrCreateCalendarToken, revokeCalendarToken, getActiveCalendarToken } from "@/lib/calendar-api";
 import { Button } from "@/components/ui/button";
@@ -363,14 +364,15 @@ function CalendarPage() {
                           </button>
                         );
                       })}
-                      {/* Tasks */}
+                      {/* Tasks from kanban boards */}
                       {items.tasks.slice(0, 2).map((t) => (
                         <button
                           key={t.id}
                           onClick={() => openEditTask(t)}
-                          className="flex w-full items-center gap-1.5 truncate rounded bg-accent/60 px-1.5 py-1 text-left text-[11px] text-foreground hover:bg-accent"
+                          className="flex w-full items-center gap-1.5 truncate rounded bg-sky-500/80 px-1.5 py-1 text-left text-[11px] text-white hover:bg-sky-500"
                           title={t.title}
                         >
+                          <KanbanSquare className="h-3 w-3 shrink-0" />
                           <span className="truncate">{t.title}</span>
                         </button>
                       ))}
