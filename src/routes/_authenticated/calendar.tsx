@@ -229,7 +229,7 @@ function CalendarPage() {
             <Button variant="outline" size="sm" onClick={() => setIcalOpen(true)}>
               <Link2 className="h-4 w-4" /> iCal
             </Button>
-            {canManageCalendars && profile?.org_id && (
+            {profile?.org_id && (
               <Button variant="outline" size="sm" onClick={() => setCreateCalendarOpen(true)}>
                 <CalendarDays className="h-4 w-4" /> Календарь
               </Button>
@@ -239,26 +239,66 @@ function CalendarPage() {
 
         <div className="flex gap-4">
           {/* Sidebar: Calendar list */}
-          <div className="w-48 shrink-0 space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Календари
+          <div className="w-48 shrink-0 space-y-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Организация
+              </div>
+              {calendarsQ.data?.filter((c: any) => !c.user_id).map((cal: any) => (
+                <label
+                  key={cal.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCalendars.has(cal.id)}
+                    onChange={() => toggleCalendar(cal.id)}
+                    className="h-4 w-4 accent-[color:var(--brand)]"
+                  />
+                  <span
+                    className={`h-3 w-3 rounded-full ${COLOR_MAP[cal.color ?? "brand"] ?? COLOR_MAP.brand}`}
+                  />
+                  <span className="flex-1 truncate text-foreground">{cal.name}</span>
+                  {(canManageCalendars || cal.created_by === user?.id) && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (confirm(`Удалить календарь «${cal.name}»?`)) {
+                          deleteCalendar({ data: { calendarId: cal.id } }).then(() => calendarsQ.refetch());
+                        }
+                      }}
+                      className="opacity-0 text-muted-foreground hover:text-destructive group-hover:opacity-100"
+                    >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </label>
+            ))}
+            {calendarsQ.data?.filter((c: any) => !c.user_id).length === 0 && (
+              <p className="text-xs text-muted-foreground">Нет календарей</p>
+            )}
             </div>
-            {calendarsQ.data?.map((cal: any) => (
-              <label
-                key={cal.id}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedCalendars.has(cal.id)}
-                  onChange={() => toggleCalendar(cal.id)}
-                  className="h-4 w-4 accent-[color:var(--brand)]"
-                />
-                <span
-                  className={`h-3 w-3 rounded-full ${COLOR_MAP[cal.color ?? "brand"] ?? COLOR_MAP.brand}`}
-                />
-                <span className="flex-1 truncate text-foreground">{cal.name}</span>
-                {canManageCalendars && (
+
+            {/* Personal calendars */}
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Личные
+              </div>
+              {calendarsQ.data?.filter((c: any) => c.user_id === user?.id).map((cal: any) => (
+                <label
+                  key={cal.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCalendars.has(cal.id)}
+                    onChange={() => toggleCalendar(cal.id)}
+                    className="h-4 w-4 accent-[color:var(--brand)]"
+                  />
+                  <span
+                    className={`h-3 w-3 rounded-full ${COLOR_MAP[cal.color ?? "brand"] ?? COLOR_MAP.brand}`}
+                  />
+                  <span className="flex-1 truncate text-foreground">{cal.name}</span>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -270,12 +310,12 @@ function CalendarPage() {
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
-                )}
-              </label>
-            ))}
-            {calendarsQ.data?.length === 0 && (
-              <p className="text-xs text-muted-foreground">Нет календарей</p>
-            )}
+                </label>
+              ))}
+              {calendarsQ.data?.filter((c: any) => c.user_id === user?.id).length === 0 && (
+                <p className="text-xs text-muted-foreground">Нет личных</p>
+              )}
+            </div>
           </div>
 
           {/* Calendar grid */}
@@ -383,6 +423,7 @@ function CalendarPage() {
       {createCalendarOpen && (
         <CreateCalendarDialog
           orgId={profile?.org_id!}
+          canCreateOrg={canManageCalendars}
           onClose={() => setCreateCalendarOpen(false)}
           onCreated={() => {
             setCreateCalendarOpen(false);
@@ -580,22 +621,24 @@ function CreateEventDialog({
 
 function CreateCalendarDialog({
   orgId,
+  canCreateOrg,
   onClose,
   onCreated,
 }: {
   orgId: string;
+  canCreateOrg: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const createCal = useServerFn(createCalendar);
-  const [form, setForm] = useState({ name: "", color: "brand" });
+  const [form, setForm] = useState({ name: "", color: "brand", personal: !canCreateOrg });
   const [busy, setBusy] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await createCal({ data: { orgId, name: form.name, color: form.color } });
+      await createCal({ data: { orgId, name: form.name, color: form.color, personal: form.personal } });
       toast.success("Календарь создан");
       onCreated();
     } catch (err: any) {
@@ -617,9 +660,20 @@ function CreateCalendarDialog({
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Например: Служба продаж"
+              placeholder={form.personal ? "Мой календарь" : "Например: Служба продаж"}
             />
           </div>
+          {canCreateOrg && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.personal}
+                onChange={(e) => setForm({ ...form, personal: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-foreground">Личный (только для меня)</span>
+            </div>
+          )}
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Цвет</div>
             <div className="flex gap-2">

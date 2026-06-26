@@ -26,13 +26,14 @@ async function ensureOrgAdmin(ctx: { supabase: any; userId: string }, orgId: str
 export const listCalendars = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ orgId: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const client = supabaseAdmin as AnyClient;
+    // Fetch org calendars + user's personal calendars
     const { data: calendars, error } = await client
       .from("calendars")
-      .select("id, name, color, created_at, created_by")
-      .eq("org_id", data.orgId)
+      .select("id, name, color, created_at, created_by, user_id")
+      .or(`and(org_id.eq.${data.orgId},user_id.is.null),and(org_id.eq.${data.orgId},user_id.eq.${(context as any).userId})`)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return calendars;
@@ -47,11 +48,16 @@ export const createCalendar = createServerFn({ method: "POST" })
           orgId: z.string().uuid(),
           name: z.string().min(1),
           color: z.string().optional(),
+          personal: z.boolean().optional(),
         })
         .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await ensureOrgAdmin(context as any, data.orgId);
+    // Personal calendars: any user can create in their org
+    // Org calendars: admin+ only
+    if (!data.personal) {
+      await ensureOrgAdmin(context as any, data.orgId);
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const client = supabaseAdmin as AnyClient;
     const { data: calendar, error } = await client
@@ -61,6 +67,7 @@ export const createCalendar = createServerFn({ method: "POST" })
         name: data.name,
         color: data.color,
         created_by: (context as any).userId,
+        user_id: data.personal ? (context as any).userId : null,
       })
       .select()
       .single();
