@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Calendar, Flag } from "lucide-react";
+import { Calendar, Flag, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/lib/boards-api";
 
@@ -27,12 +27,14 @@ export function TaskCard({
   task,
   assigneeName,
   assigneeEmail,
+  commentCount,
   onClick,
   overlay,
 }: {
   task: TaskRow;
   assigneeName?: string | null;
   assigneeEmail?: string | null;
+  commentCount?: number;
   onClick?: () => void;
   overlay?: boolean;
 }) {
@@ -84,6 +86,12 @@ export function TaskCard({
                 day: "2-digit",
                 month: "short",
               })}
+            </span>
+          )}
+          {commentCount != null && commentCount > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <MessageSquare className="h-3 w-3" />
+              {commentCount}
             </span>
           )}
         </div>

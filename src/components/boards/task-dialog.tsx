@@ -31,6 +31,8 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { Trash2, Calendar, Loader2 } from "lucide-react";
 import { listCalendars, sendTaskToCalendar } from "@/lib/calendar.functions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TaskComments } from "./task-comments";
 
 interface Member {
   id: string;
@@ -175,145 +177,163 @@ export function TaskDialog({
     setSendBusy(false);
   };
 
+  const taskForm = (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        save.mutate();
+      }}
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor="t-title">Название</Label>
+        <Input
+          id="t-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          autoFocus
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="t-desc">Описание</Label>
+        <Textarea
+          id="t-desc"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Колонка</Label>
+          <Select value={columnId} onValueChange={setColumnId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {columns.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Приоритет</Label>
+          <Select value={priority} onValueChange={setPriority}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITIES.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Исполнитель</Label>
+          <Select value={assigneeId} onValueChange={setAssigneeId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Не назначен" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Не назначен</SelectItem>
+              {members?.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.full_name || m.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="t-due">Срок</Label>
+          <Input
+            id="t-due"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </div>
+      </div>
+      {isEdit && (
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={completed}
+            onChange={(e) => setCompleted(e.target.checked)}
+            className="h-4 w-4 accent-brand"
+          />
+          Задача выполнена
+        </label>
+      )}
+      <DialogFooter className="gap-2 sm:gap-2">
+        {isEdit && task && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mr-auto"
+              onClick={() => setSendCalendarOpen(true)}
+            >
+              <Calendar className="h-4 w-4" />
+              В календарь
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => {
+                if (confirm("Удалить задачу?")) remove.mutate();
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Удалить
+            </Button>
+          </>
+        )}
+        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          Отмена
+        </Button>
+        <Button type="submit" disabled={save.isPending || !title.trim()}>
+          {save.isPending ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className={isEdit ? "max-w-xl" : "max-w-lg"}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
           <DialogDescription>
             {isEdit ? "Измените поля задачи и сохраните." : "Заполните поля и создайте задачу."}
           </DialogDescription>
         </DialogHeader>
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!title.trim()) return;
-            save.mutate();
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="t-title">Название</Label>
-            <Input
-              id="t-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="t-desc">Описание</Label>
-            <Textarea
-              id="t-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Колонка</Label>
-              <Select value={columnId} onValueChange={setColumnId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Приоритет</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Исполнитель</Label>
-              <Select value={assigneeId} onValueChange={setAssigneeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Не назначен" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Не назначен</SelectItem>
-                  {members?.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.full_name || m.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-due">Срок</Label>
-              <Input
-                id="t-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
-          </div>
-          {isEdit && (
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={completed}
-                onChange={(e) => setCompleted(e.target.checked)}
-                className="h-4 w-4 accent-brand"
-              />
-              Задача выполнена
-            </label>
-          )}
-          <DialogFooter className="gap-2 sm:gap-2">
-            {isEdit && task && (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="mr-auto"
-                  onClick={() => setSendCalendarOpen(true)}
-                >
-                  <Calendar className="h-4 w-4" />
-                  В календарь
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => {
-                    if (confirm("Удалить задачу?")) remove.mutate();
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Удалить
-                </Button>
-              </>
-            )}
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Отмена
-            </Button>
-            <Button type="submit" disabled={save.isPending || !title.trim()}>
-              {save.isPending ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать"}
-            </Button>
-          </DialogFooter>
-        </form>
+
+        {isEdit && task ? (
+          <Tabs defaultValue="task">
+            <TabsList className="w-full">
+              <TabsTrigger value="task" className="flex-1">Задача</TabsTrigger>
+              <TabsTrigger value="comments" className="flex-1">Комментарии</TabsTrigger>
+            </TabsList>
+            <TabsContent value="task">{taskForm}</TabsContent>
+            <TabsContent value="comments" className="pt-2">
+              <TaskComments taskId={task.id} />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          taskForm
+        )}
       </DialogContent>
 
       {/* Send to Calendar Modal */}

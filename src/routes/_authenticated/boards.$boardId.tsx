@@ -105,6 +105,25 @@ function BoardPage() {
     return map;
   }, [tasks, data?.columns]);
 
+  // Fetch comment counts for all tasks on this board
+  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+  const { data: commentCounts = {} } = useQuery({
+    queryKey: ["commentCounts", boardId],
+    queryFn: async () => {
+      if (taskIds.length === 0) return {};
+      const { data } = await supabase
+        .from("task_comments")
+        .select("task_id")
+        .in("task_id", taskIds);
+      const counts: Record<string, number> = {};
+      data?.forEach((c: any) => {
+        counts[c.task_id] = (counts[c.task_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: taskIds.length > 0,
+  });
+
   const persistMut = useMutation({
     mutationFn: persistOrder,
     onError: (e: Error) => {
@@ -310,6 +329,7 @@ function BoardPage() {
                 onAddTask={openCreateTask}
                 onEditTask={openEditTask}
                 canManage={canManageBoard}
+                commentCounts={commentCounts}
               />
             ))}
             {canManageBoard && (

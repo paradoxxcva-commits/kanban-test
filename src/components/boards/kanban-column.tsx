@@ -29,6 +29,7 @@ export function KanbanColumn({
   onAddTask,
   onEditTask,
   canManage = false,
+  commentCounts = {},
 }: {
   column: ColumnRow;
   tasks: TaskRow[];
@@ -37,6 +38,7 @@ export function KanbanColumn({
   onAddTask: (columnId: string) => void;
   onEditTask: (task: TaskRow) => void;
   canManage?: boolean;
+  commentCounts?: Record<string, number>;
 }) {
   const qc = useQueryClient();
   const { setNodeRef, isOver } = useDroppable({
@@ -147,6 +149,7 @@ export function KanbanColumn({
                 task={t}
                 assigneeName={m?.full_name}
                 assigneeEmail={m?.email}
+                commentCount={commentCounts[t.id]}
                 onClick={() => onEditTask(t)}
               />
             );
