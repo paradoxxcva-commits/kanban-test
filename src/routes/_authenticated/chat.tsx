@@ -707,12 +707,10 @@ function Attachment({ m, mine }: { m: Message; mine: boolean }) {
   useEffect(() => {
     if (!m.attachment_url) return;
     let active = true;
-    supabase.storage
+    const { data } = supabase.storage
       .from("chat-attachments")
-      .createSignedUrl(m.attachment_url, 3600)
-      .then(({ data }) => {
-        if (active && data?.signedUrl) setUrl(data.signedUrl);
-      });
+      .getPublicUrl(m.attachment_url);
+    if (active && data?.publicUrl) setUrl(data.publicUrl);
     return () => {
       active = false;
     };
