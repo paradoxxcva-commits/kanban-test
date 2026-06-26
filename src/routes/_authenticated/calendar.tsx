@@ -233,7 +233,7 @@ function CalendarPage() {
             <Button variant="outline" size="sm" onClick={() => setCreateEventOpen(true)}>
               <Plus className="h-4 w-4" /> Событие
             </Button>
-            {canManageCalendars && (
+            {canManageCalendars && profile?.org_id && (
               <Button variant="outline" size="sm" onClick={() => setCreateCalendarOpen(true)}>
                 <CalendarDays className="h-4 w-4" /> Календарь
               </Button>
