@@ -73,6 +73,7 @@ const baseNav: NavItem[] = [
   { to: "/boards", label: "Доски", icon: KanbanSquare },
   { to: "/calendar", label: "Календарь", icon: CalendarDays },
   { to: "/chat", label: "Чат", icon: MessageSquare },
+  { to: "/members", label: "Команда", icon: Users },
 ];
 
 function NavLink({ item, badge }: { item: NavItem; badge?: React.ReactNode }) {

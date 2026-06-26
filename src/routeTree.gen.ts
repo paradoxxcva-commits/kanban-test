@@ -17,6 +17,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedOrgAdminRouteImport } from './routes/_authenticated/org-admin'
+import { Route as AuthenticatedMembersRouteImport } from './routes/_authenticated/members'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
@@ -58,6 +59,11 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
 const AuthenticatedOrgAdminRoute = AuthenticatedOrgAdminRouteImport.update({
   id: '/org-admin',
   path: '/org-admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMembersRoute = AuthenticatedMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSuperAdminRoute = AuthenticatedSuperAdminRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/team': typeof AuthenticatedTeamRoute
   '/org-admin': typeof AuthenticatedOrgAdminRoute
+  '/members': typeof AuthenticatedMembersRoute
   '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards/': typeof AuthenticatedBoardsIndexRoute
   '/api/public/ical/$token': typeof ApiPublicIcalTokenRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/team': typeof AuthenticatedTeamRoute
   '/org-admin': typeof AuthenticatedOrgAdminRoute
+  '/members': typeof AuthenticatedMembersRoute
   '/': typeof AuthenticatedIndexRoute
   '/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/boards': typeof AuthenticatedBoardsIndexRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/org-admin': typeof AuthenticatedOrgAdminRoute
+  '/_authenticated/members': typeof AuthenticatedMembersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/boards/$boardId': typeof AuthenticatedBoardsBoardIdRoute
   '/_authenticated/boards/': typeof AuthenticatedBoardsIndexRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/team'
     | '/org-admin'
+    | '/members'
     | '/boards/$boardId'
     | '/boards/'
     | '/api/public/ical/$token'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/team'
     | '/org-admin'
+    | '/members'
     | '/'
     | '/boards/$boardId'
     | '/boards'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/_authenticated/super-admin'
     | '/_authenticated/team'
     | '/_authenticated/org-admin'
+    | '/_authenticated/members'
     | '/_authenticated/'
     | '/_authenticated/boards/$boardId'
     | '/_authenticated/boards/'
@@ -271,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/org-admin'
       fullPath: '/org-admin'
       preLoaderRoute: typeof AuthenticatedOrgAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/members': {
+      id: '/_authenticated/members'
+      path: '/members'
+      fullPath: '/members'
+      preLoaderRoute: typeof AuthenticatedMembersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/super-admin': {
@@ -361,6 +380,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedOrgAdminRoute: typeof AuthenticatedOrgAdminRoute
+  AuthenticatedMembersRoute: typeof AuthenticatedMembersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -373,6 +393,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedOrgAdminRoute: AuthenticatedOrgAdminRoute,
+  AuthenticatedMembersRoute: AuthenticatedMembersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
