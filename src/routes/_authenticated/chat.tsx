@@ -69,12 +69,11 @@ function Badge({ count }: { count: number }) {
 }
 
 function useUnreadCount(meId: string, peerId: string, messages: Message[]) {
-  const lastRead = getLastRead(peerId);
   return useMemo(() => {
-    if (!lastRead) return messages.filter((m) => m.sender_id !== meId).length;
-    const ts = new Date(lastRead).getTime();
-    return messages.filter((m) => m.sender_id !== meId && new Date(m.inserted_at).getTime() > ts).length;
-  }, [lastRead, messages, meId]);
+    return messages.filter(
+      (m) => m.sender_id === peerId && m.recipient_id === meId && !m.read_at
+    ).length;
+  }, [messages, meId, peerId]);
 }
 
 function ChatPage() {
@@ -460,14 +459,14 @@ function ChatThread({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("*")
+        .select("id, sender_id, recipient_id, content, body, attachment_url, attachment_name, attachment_size, attachment_mime, created_at, inserted_at, updated_at, read_at")
         .or(
           `and(sender_id.eq.${me},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${me})`
         )
         .order("inserted_at", { ascending: true })
         .limit(500);
       if (error) throw error;
-      return (data as Message[]) ?? [];
+      return (data as unknown as Message[]) ?? [];
     },
     refetchInterval: 3000,
   });

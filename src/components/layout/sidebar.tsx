@@ -29,31 +29,16 @@ function ChatUnreadBadge({ userId }: { userId: string }) {
     let cancelled = false;
     const fetchUnread = async () => {
       try {
-        const { data: sent } = await supabase
+        const { count } = await supabase
           .from("messages")
-          .select("sender_id")
-          .eq("recipient_id", userId);
-
-        const peerIds = new Set<string>();
-        (sent ?? []).forEach((m) => peerIds.add(m.sender_id));
-
-        let total = 0;
-        for (const peerId of peerIds) {
-          const lastRead = localStorage.getItem(`chat_read_${peerId}`);
-          const ts = lastRead ? new Date(lastRead).toISOString() : "1970-01-01T00:00:00Z";
-          const { count } = await supabase
-            .from("messages")
-            .select("id", { count: "exact", head: true })
-            .eq("sender_id", peerId)
-            .eq("recipient_id", userId)
-            .gt("inserted_at", ts);
-          total += count ?? 0;
-        }
-        if (!cancelled) setCount(total);
+          .select("id", { count: "exact", head: true })
+          .eq("recipient_id", userId)
+          .is("read_at", null);
+        if (!cancelled) setCount(count ?? 0);
       } catch {}
     };
     fetchUnread();
-    const interval = setInterval(fetchUnread, 10000);
+    const interval = setInterval(fetchUnread, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
