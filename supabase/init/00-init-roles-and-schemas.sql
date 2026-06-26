@@ -34,6 +34,7 @@ GRANT supabase_auth_admin TO postgres;
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA graphql_public TO anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role, supabase_storage_admin;
 GRANT ALL ON SCHEMA auth TO supabase_auth_admin, postgres;
 GRANT ALL ON SCHEMA storage TO supabase_storage_admin, postgres;
 GRANT ALL ON SCHEMA realtime TO postgres;
