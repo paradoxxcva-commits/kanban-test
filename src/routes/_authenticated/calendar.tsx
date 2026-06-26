@@ -195,11 +195,19 @@ function CalendarPage() {
   };
 
   const openEditTask = async (t: TaskRow) => {
-    const cols = await listColumns(t.board_id);
-    setCreateBoardId(t.board_id);
-    setCreateColumns(cols);
-    setEditingTask(t);
-    setTaskOpen(true);
+    try {
+      const cols = await listColumns(t.board_id);
+      if (!cols || cols.length === 0) {
+        toast.error("В доске нет колонок");
+        return;
+      }
+      setCreateBoardId(t.board_id);
+      setCreateColumns(cols);
+      setEditingTask(t);
+      setTaskOpen(true);
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
   };
 
   const openSendToCalendar = (t: TaskRow) => {
@@ -317,13 +325,22 @@ function CalendarPage() {
                     onDrop={(e) => {
                       e.preventDefault();
                       const eventId = e.dataTransfer.getData("event-id");
+                      const taskId = e.dataTransfer.getData("task-id");
                       if (eventId) {
+                        const ev = (eventsQ.data ?? []).find((x: any) => x.id === eventId);
+                        const oldTime = ev ? new Date(ev.start_time) : new Date();
+                        const hours = oldTime.getHours();
+                        const minutes = oldTime.getMinutes();
+                        const newStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hours, minutes);
                         updateCalendarEvent({
                           data: {
                             eventId,
-                            startTime: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0).toISOString(),
+                            startTime: newStart.toISOString(),
                           },
                         }).then(() => eventsQ.refetch());
+                      } else if (taskId) {
+                        const newDue = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 18, 0).toISOString();
+                        supabase.from("tasks").update({ due_date: newDue }).eq("id", taskId).then(() => tasksQ.refetch());
                       }
                     }}
                     className={`group relative min-h-[110px] border-b border-r border-border p-1.5 ${
@@ -368,8 +385,13 @@ function CalendarPage() {
                       {items.tasks.slice(0, 2).map((t) => (
                         <button
                           key={t.id}
+                          draggable
+                          onDragStart={(ev) => {
+                            ev.dataTransfer.setData("task-id", t.id);
+                            ev.dataTransfer.effectAllowed = "move";
+                          }}
                           onClick={() => openEditTask(t)}
-                          className="flex w-full items-center gap-1.5 truncate rounded bg-sky-500/80 px-1.5 py-1 text-left text-[11px] text-white hover:bg-sky-500"
+                          className="flex w-full items-center gap-1.5 truncate rounded bg-sky-500/80 px-1.5 py-1 text-left text-[11px] text-white hover:bg-sky-500 cursor-grab active:cursor-grabbing"
                           title={t.title}
                         >
                           <KanbanSquare className="h-3 w-3 shrink-0" />
