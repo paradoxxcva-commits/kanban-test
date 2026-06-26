@@ -39,7 +39,7 @@ services:
 
   # Storage
   - name: storage
-    url: http://storage:8000/
+    url: http://storage:5000/
     routes:
       - name: storage-v1
         strip_path: true
