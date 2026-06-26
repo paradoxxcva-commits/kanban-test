@@ -122,9 +122,6 @@ export function AppSidebar() {
   const { hasRole, profile, user } = useAuth();
 
   const mainNav: NavItem[] = [...baseNav];
-  if (hasRole("super_admin")) {
-    mainNav.push({ to: "/team", label: "Команда", icon: Users });
-  }
 
   const adminNav: NavItem[] = [
     { to: "/account", label: "Аккаунт", icon: UserCircle },
