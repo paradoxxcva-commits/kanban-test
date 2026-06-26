@@ -15,7 +15,7 @@ import {
   removeTaskFromCalendar,
   getTaskCalendarStatus,
 } from "@/lib/calendar.functions";
-import { listBoards, listColumns, type ColumnRow } from "@/lib/boards-api";
+import { listColumns, type ColumnRow } from "@/lib/boards-api";
 import { TaskDialog } from "@/components/boards/task-dialog";
 import type { TaskRow } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
@@ -34,7 +34,6 @@ import {
   Copy,
   RotateCcw,
   Pencil,
-  KanbanSquare,
 } from "lucide-react";
 import { getOrCreateCalendarToken, revokeCalendarToken, getActiveCalendarToken } from "@/lib/calendar-api";
 import { Button } from "@/components/ui/button";
@@ -143,43 +142,19 @@ function CalendarPage() {
     enabled: selectedCalendars.size > 0,
   });
 
-  // Fetch tasks with due dates
-  const tasksQ = useQuery({
-    queryKey: ["calendar-tasks", gridStart.toISOString(), gridEnd.toISOString()],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tasks")
-        .select("*")
-        .not("due_date", "is", null)
-        .gte("due_date", gridStart.toISOString())
-        .lte("due_date", gridEnd.toISOString());
-      return (data ?? []) as TaskRow[];
-    },
-  });
-
-  const boardsQ = useQuery({ queryKey: ["boards"], queryFn: () => listBoards() });
-
-  // Merge events and tasks by day
+  // Events only — tasks do NOT auto-appear in calendar
   const itemsByDay = useMemo(() => {
-    const map = new Map<string, { events: any[]; tasks: TaskRow[] }>();
+    const map = new Map<string, { events: any[] }>();
 
     for (const e of eventsQ.data ?? []) {
       const d = new Date(e.start_time);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      if (!map.has(key)) map.set(key, { events: [], tasks: [] });
+      if (!map.has(key)) map.set(key, { events: [] });
       map.get(key)!.events.push(e);
     }
 
-    for (const t of tasksQ.data ?? []) {
-      if (!t.due_date) continue;
-      const d = new Date(t.due_date);
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      if (!map.has(key)) map.set(key, { events: [], tasks: [] });
-      map.get(key)!.tasks.push(t);
-    }
-
     return map;
-  }, [eventsQ.data, tasksQ.data]);
+  }, [eventsQ.data]);
 
   const toggleCalendar = (id: string) => {
     setSelectedCalendars((prev) => {
@@ -317,7 +292,7 @@ function CalendarPage() {
                 const inMonth = day >= monthStart && day < monthEnd;
                 const isToday = sameDay(day, new Date());
                 const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
-                const items = itemsByDay.get(key) ?? { events: [], tasks: [] };
+                const items = itemsByDay.get(key) ?? { events: [] };
                 return (
                   <div
                     key={idx}
@@ -325,7 +300,6 @@ function CalendarPage() {
                     onDrop={(e) => {
                       e.preventDefault();
                       const eventId = e.dataTransfer.getData("event-id");
-                      const taskId = e.dataTransfer.getData("task-id");
                       if (eventId) {
                         const ev = (eventsQ.data ?? []).find((x: any) => x.id === eventId);
                         const oldTime = ev ? new Date(ev.start_time) : new Date();
@@ -338,9 +312,6 @@ function CalendarPage() {
                             startTime: newStart.toISOString(),
                           },
                         }).then(() => eventsQ.refetch());
-                      } else if (taskId) {
-                        const newDue = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 18, 0).toISOString();
-                        supabase.from("tasks").update({ due_date: newDue }).eq("id", taskId).then(() => tasksQ.refetch());
                       }
                     }}
                     className={`group relative min-h-[110px] border-b border-r border-border p-1.5 ${
@@ -362,7 +333,7 @@ function CalendarPage() {
                     </div>
                     <div className="mt-1 space-y-1">
                       {/* Calendar events */}
-                      {items.events.slice(0, 2).map((e) => {
+                      {items.events.slice(0, 3).map((e) => {
                         const cal = calendarsQ.data?.find((c: any) => c.id === e.calendar_id);
                         return (
                           <button
@@ -381,26 +352,9 @@ function CalendarPage() {
                           </button>
                         );
                       })}
-                      {/* Tasks from kanban boards */}
-                      {items.tasks.slice(0, 2).map((t) => (
-                        <button
-                          key={t.id}
-                          draggable
-                          onDragStart={(ev) => {
-                            ev.dataTransfer.setData("task-id", t.id);
-                            ev.dataTransfer.effectAllowed = "move";
-                          }}
-                          onClick={() => openEditTask(t)}
-                          className="flex w-full items-center gap-1.5 truncate rounded bg-sky-500/80 px-1.5 py-1 text-left text-[11px] text-white hover:bg-sky-500 cursor-grab active:cursor-grabbing"
-                          title={t.title}
-                        >
-                          <KanbanSquare className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{t.title}</span>
-                        </button>
-                      ))}
-                      {(items.events.length + items.tasks.length) > 4 && (
+                      {items.events.length > 3 && (
                         <div className="px-1.5 text-[10px] text-muted-foreground">
-                          + ещё {(items.events.length + items.tasks.length) - 4}
+                          + ещё {items.events.length - 3}
                         </div>
                       )}
                     </div>
@@ -481,7 +435,6 @@ function CalendarPage() {
           onOpenChange={(v) => {
             setTaskOpen(v);
             if (!v) {
-              tasksQ.refetch();
               setEditingTask(null);
             }
           }}
