@@ -83,7 +83,7 @@ function DashboardPage() {
     { label: "Участников", value: String(counts?.members ?? "—"), delta: "в организации", icon: Users, tone: "muted" },
   ];
 
-  const greeting = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "коллега";
+  const greeting = profile?.full_name || user?.email?.split("@")[0] || "коллега";
 
   return (
     <AppShell>

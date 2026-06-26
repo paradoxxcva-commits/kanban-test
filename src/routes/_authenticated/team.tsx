@@ -13,6 +13,7 @@ import {
   Power,
   X,
   Calendar,
+  Pencil,
 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -25,6 +26,7 @@ import {
   updateUserActive,
   updateUserOrg,
   updateUserPaidUntil,
+  updateUserFullName,
   setUserRoles,
   adminSetUserPassword,
 } from "@/lib/admin.functions";
@@ -87,6 +89,7 @@ function TeamPanel() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [pwdUser, setPwdUser] = useState<{ id: string; label: string } | null>(null);
   const [rolesUser, setRolesUser] = useState<any | null>(null);
+  const [editNameUser, setEditNameUser] = useState<any | null>(null);
 
   const filtered = useMemo(() => {
     return (users ?? []).filter((u: any) => {
@@ -288,6 +291,13 @@ function TeamPanel() {
                   <td className="px-3 py-3">
                     <div className="flex justify-end gap-2">
                       <button
+                        onClick={() => setEditNameUser(u)}
+                        title="Изменить имя"
+                        className="ring-focus rounded-md border border-border bg-surface p-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
                         onClick={() =>
                           setPwdUser({ id: u.id, label: u.full_name || u.email })
                         }
@@ -344,6 +354,17 @@ function TeamPanel() {
           onClose={() => setRolesUser(null)}
           onSaved={() => {
             setRolesUser(null);
+            refetch();
+          }}
+        />
+      )}
+
+      {editNameUser && (
+        <EditNameDialog
+          user={editNameUser}
+          onClose={() => setEditNameUser(null)}
+          onSaved={() => {
+            setEditNameUser(null);
             refetch();
           }}
         />
@@ -640,5 +661,65 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
       <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       {children}
     </div>
+  );
+}
+
+function EditNameDialog({
+  user,
+  onClose,
+  onSaved,
+}: {
+  user: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const updateName = useServerFn(updateUserFullName);
+  const [fullName, setFullName] = useState(user.full_name || "");
+  const [busy, setBusy] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim()) return toast.error("Введите имя");
+    setBusy(true);
+    try {
+      await updateName({ data: { userId: user.id, fullName: fullName.trim() } });
+      toast.success("Имя обновлено");
+      onSaved();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+    setBusy(false);
+  };
+
+  return (
+    <Modal title={`Изменить имя: ${user.email}`} onClose={onClose}>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <Labeled label="Полное имя">
+          <input
+            autoFocus
+            required
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="ring-focus block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </Labeled>
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="ring-focus rounded-md border border-border bg-surface px-3 py-2 text-sm hover:bg-accent"
+          >
+            Отмена
+          </button>
+          <button
+            disabled={busy}
+            className="ring-focus inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-brand-foreground hover:bg-brand-glow disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

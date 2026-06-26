@@ -213,6 +213,22 @@ export const updateUserOrg = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateUserFullName = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ userId: z.string().uuid(), fullName: z.string().min(1) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ full_name: data.fullName })
+      .eq("id", data.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const setUserRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

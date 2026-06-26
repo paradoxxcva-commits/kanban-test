@@ -1,6 +1,8 @@
 import { Bell, Search, Sun, Moon, LogOut } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/lib/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 function initials(name: string | null | undefined, email: string | undefined) {
   const src = (name && name.trim()) || email || "?";
@@ -15,6 +17,20 @@ function initials(name: string | null | undefined, email: string | undefined) {
 export function Topbar() {
   const { theme, toggle } = useTheme();
   const { profile, user, roles, signOut } = useAuth();
+
+  const { data: org } = useQuery({
+    queryKey: ["org", profile?.org_id],
+    queryFn: async () => {
+      if (!profile?.org_id) return null;
+      const { data } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", profile.org_id)
+        .single();
+      return data;
+    },
+    enabled: !!profile?.org_id,
+  });
 
   const roleLabel = roles.includes("super_admin")
     ? "Системный администратор"
@@ -64,7 +80,9 @@ export function Topbar() {
           <div className="max-w-[180px] truncate text-xs font-medium text-foreground">
             {profile?.full_name || user?.email || "Гость"}
           </div>
-          <div className="text-[10px] text-muted-foreground">{roleLabel}</div>
+          <div className="text-[10px] text-muted-foreground">
+            {org?.name || roleLabel}
+          </div>
         </div>
       </div>
 
