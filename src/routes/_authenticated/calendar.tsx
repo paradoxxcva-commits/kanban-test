@@ -95,7 +95,22 @@ function CalendarPage() {
   const qc = useQueryClient();
 
   const [cursor, setCursor] = useState(() => new Date());
-  const [selectedCalendars, setSelectedCalendars] = useState<Set<string>>(new Set());
+
+  function loadSelectedCalendars(): Set<string> {
+    try {
+      const stored = localStorage.getItem("calendar_selected");
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    return new Set();
+  }
+
+  function saveSelectedCalendars(ids: Set<string>) {
+    try {
+      localStorage.setItem("calendar_selected", JSON.stringify([...ids]));
+    } catch {}
+  }
+
+  const [selectedCalendars, setSelectedCalendars] = useState<Set<string>>(loadSelectedCalendars);
   const [createEventOpen, setCreateEventOpen] = useState(false);
   const [createCalendarOpen, setCreateCalendarOpen] = useState(false);
   const [icalOpen, setIcalOpen] = useState(false);
@@ -121,10 +136,22 @@ function CalendarPage() {
     enabled: !!profile?.org_id,
   });
 
-  // Initialize selected calendars
+  // Initialize selected calendars from localStorage or select all if empty
   useMemo(() => {
-    if (calendarsQ.data && selectedCalendars.size === 0) {
-      setSelectedCalendars(new Set(calendarsQ.data.map((c: any) => c.id)));
+    if (calendarsQ.data) {
+      const stored = loadSelectedCalendars();
+      if (stored.size > 0) {
+        // Restore stored selection, but only for calendars that still exist
+        const validIds = new Set(calendarsQ.data.map((c: any) => c.id));
+        const filtered = new Set([...stored].filter((id) => validIds.has(id)));
+        if (filtered.size > 0) {
+          setSelectedCalendars(filtered);
+        } else {
+          setSelectedCalendars(new Set(calendarsQ.data.map((c: any) => c.id)));
+        }
+      } else {
+        setSelectedCalendars(new Set(calendarsQ.data.map((c: any) => c.id)));
+      }
     }
   }, [calendarsQ.data]);
 
@@ -161,6 +188,7 @@ function CalendarPage() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      saveSelectedCalendars(next);
       return next;
     });
   };
