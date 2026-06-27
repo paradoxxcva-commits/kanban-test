@@ -45,20 +45,6 @@ function initials(name: string | null, email: string) {
     .join("");
 }
 
-function getLastRead(peerId: string): string | null {
-  try {
-    return localStorage.getItem(`chat_read_${peerId}`);
-  } catch {
-    return null;
-  }
-}
-
-function setLastRead(peerId: string) {
-  try {
-    localStorage.setItem(`chat_read_${peerId}`, new Date().toISOString());
-  } catch {}
-}
-
 function Badge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
@@ -66,14 +52,6 @@ function Badge({ count }: { count: number }) {
       {count > 99 ? "99+" : count}
     </span>
   );
-}
-
-function useUnreadCount(meId: string, peerId: string, messages: Message[]) {
-  return useMemo(() => {
-    return messages.filter(
-      (m) => m.sender_id === peerId && m.recipient_id === meId && !m.read_at
-    ).length;
-  }, [messages, meId, peerId]);
 }
 
 function ChatPage() {
@@ -160,14 +138,12 @@ function SuperAdminChat({
     (async () => {
       const results: Record<string, number> = {};
       for (const chat of supportChats) {
-        const lastRead = getLastRead(chat.id);
-        const ts = lastRead ? new Date(lastRead).getTime() : 0;
         const { count } = await supabase
           .from("messages")
           .select("id", { count: "exact", head: true })
           .eq("sender_id", chat.id)
           .eq("recipient_id", user.id)
-          .gt("inserted_at", new Date(ts).toISOString());
+          .is("read_at", null);
         results[chat.id] = count ?? 0;
       }
       if (!cancelled) setUnreadMap(results);
@@ -234,7 +210,6 @@ function SuperAdminChat({
               peerId={selected}
               peer={supportChats?.find((u) => u.id === selected)}
               onOpen={() => {
-                setLastRead(selected);
                 setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
               }}
             />
@@ -311,14 +286,12 @@ function UserChat({
     (async () => {
       const results: Record<string, number> = {};
       for (const c of allContacts) {
-        const lastRead = getLastRead(c.id);
-        const ts = lastRead ? new Date(lastRead).getTime() : 0;
         const { count } = await supabase
           .from("messages")
           .select("id", { count: "exact", head: true })
           .eq("sender_id", c.id)
           .eq("recipient_id", user.id)
-          .gt("inserted_at", new Date(ts).toISOString());
+          .is("read_at", null);
         results[c.id] = count ?? 0;
       }
       if (!cancelled) setUnreadMap(results);
@@ -426,7 +399,6 @@ function UserChat({
                   : users?.find((u) => u.id === selected)
               }
               onOpen={() => {
-                setLastRead(selected);
                 setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
               }}
             />
