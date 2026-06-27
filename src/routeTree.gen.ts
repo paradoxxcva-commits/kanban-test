@@ -19,6 +19,7 @@ import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authentic
 import { Route as AuthenticatedOrgAdminRouteImport } from './routes/_authenticated/org-admin'
 import { Route as AuthenticatedMembersRouteImport } from './routes/_authenticated/members'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
+import { Route as AuthenticatedChatPbRouteImport } from './routes/_authenticated/chat-pb'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBoardsRouteImport } from './routes/_authenticated/boards'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
@@ -76,6 +77,11 @@ const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedChatPbRoute = AuthenticatedChatPbRouteImport.update({
+  id: '/chat-pb',
+  path: '/chat-pb',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
+  '/chat-pb': typeof AuthenticatedChatPbRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/team': typeof AuthenticatedTeamRoute
   '/org-admin': typeof AuthenticatedOrgAdminRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/chat': typeof AuthenticatedChatRoute
+  '/chat-pb': typeof AuthenticatedChatPbRoute
   '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/team': typeof AuthenticatedTeamRoute
   '/org-admin': typeof AuthenticatedOrgAdminRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/_authenticated/boards': typeof AuthenticatedBoardsRouteWithChildren
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
+  '/_authenticated/chat-pb': typeof AuthenticatedChatPbRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/org-admin': typeof AuthenticatedOrgAdminRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/boards'
     | '/calendar'
     | '/chat'
+    | '/chat-pb'
     | '/super-admin'
     | '/team'
     | '/org-admin'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/calendar'
     | '/chat'
+    | '/chat-pb'
     | '/super-admin'
     | '/team'
     | '/org-admin'
@@ -306,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/chat-pb': {
+      id: '/_authenticated/chat-pb'
+      path: '/chat-pb'
+      fullPath: '/chat-pb'
+      preLoaderRoute: typeof AuthenticatedChatPbRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/calendar': {
       id: '/_authenticated/calendar'
       path: '/calendar'
@@ -377,6 +395,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBoardsRoute: typeof AuthenticatedBoardsRouteWithChildren
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
+  AuthenticatedChatPbRoute: typeof AuthenticatedChatPbRoute
   AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedOrgAdminRoute: typeof AuthenticatedOrgAdminRoute
@@ -390,6 +409,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBoardsRoute: AuthenticatedBoardsRouteWithChildren,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
+  AuthenticatedChatPbRoute: AuthenticatedChatPbRoute,
   AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedOrgAdminRoute: AuthenticatedOrgAdminRoute,
