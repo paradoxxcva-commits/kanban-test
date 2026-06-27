@@ -490,6 +490,16 @@ function ChatThread({
               prev ? [...prev, m] : [m]
             );
           }
+          // Browser notification for incoming messages from others
+          if (m.sender_id !== me && m.recipient_id === me) {
+            const prefs = localStorage.getItem("notifications");
+            if (prefs !== "false" && "Notification" in window && document.hidden) {
+              new Notification("Новое сообщение", {
+                body: m.body || m.content || "Файл",
+                icon: "/favicon.ico",
+              });
+            }
+          }
         }
       )
       .subscribe();

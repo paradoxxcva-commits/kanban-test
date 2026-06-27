@@ -144,6 +144,18 @@ export function AppSidebar() {
         <SidebarSection title="Управление" items={adminNav} />
       </nav>
 
+      <div className="border-t border-sidebar-border p-3">
+        <div className="rounded-lg bg-gradient-to-br from-brand/20 to-brand/5 p-3 text-center">
+          <div className="text-[10px] uppercase tracking-wider text-sidebar-muted">Реклама</div>
+          <div className="mt-1 text-xs font-medium text-sidebar-foreground">
+            Планируйте задачи эффективнее
+          </div>
+          <div className="mt-1 text-[11px] text-sidebar-muted">
+            Попробуйте Планка Плюс
+          </div>
+        </div>
+      </div>
+
       {paid && daysLeft !== null && (
         <div className="border-t border-sidebar-border p-3">
           <div className="surface-card border-sidebar-border bg-sidebar-accent/40 p-3">

@@ -25,8 +25,15 @@ function SettingsPage() {
     document.documentElement.classList.toggle("light", value === "light");
   };
 
-  const toggleNotifications = () => {
+  const toggleNotifications = async () => {
     const next = !notifications;
+    if (next && "Notification" in window) {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.error("Браузер запретил уведомления");
+        return;
+      }
+    }
     setNotifications(next);
     localStorage.setItem("notifications", String(next));
   };
