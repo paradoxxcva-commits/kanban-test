@@ -83,11 +83,14 @@ export const deleteCalendar = createServerFn({ method: "POST" })
     const client = supabaseAdmin as AnyClient;
     const { data: cal, error: fetchErr } = await client
       .from("calendars")
-      .select("org_id")
+      .select("org_id, user_id")
       .eq("id", data.calendarId)
       .single();
     if (fetchErr || !cal) throw new Error("Календарь не найден");
-    await ensureOrgAdmin(context as any, cal.org_id);
+    const isOwner = cal.user_id === (context as any).userId;
+    if (!isOwner) {
+      await ensureOrgAdmin(context as any, cal.org_id);
+    }
     const { error } = await client.from("calendars").delete().eq("id", data.calendarId);
     if (error) throw new Error(error.message);
     return { ok: true };
