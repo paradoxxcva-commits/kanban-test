@@ -9,11 +9,11 @@ import {
   MessageSquare,
   UserCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface NavItem {
   to: string;
@@ -23,27 +23,18 @@ interface NavItem {
 }
 
 function ChatUnreadBadge({ userId }: { userId: string }) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchUnread = async () => {
-      try {
-        const { count } = await supabase
-          .from("messages")
-          .select("id", { count: "exact", head: true })
-          .eq("recipient_id", userId)
-          .is("read_at", null);
-        if (!cancelled) setCount(count ?? 0);
-      } catch {}
-    };
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [userId]);
+  const { data: count = 0 } = useQuery({
+    queryKey: ["unread-badge", userId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_id", userId)
+        .is("read_at", null);
+      return count ?? 0;
+    },
+    refetchInterval: 3000,
+  });
 
   if (count <= 0) return null;
   return (

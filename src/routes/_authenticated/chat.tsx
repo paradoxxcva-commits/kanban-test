@@ -458,24 +458,33 @@ function ChatThread({
   }, [messages.length]);
 
   // Mark messages as read when viewing conversation
+  const markingRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (messages.length === 0) return;
     const unreadMessages = messages.filter(
-      (m) => m.sender_id === peerId && m.recipient_id === me && !m.read_at
+      (m) => m.sender_id === peerId && m.recipient_id === me && !m.read_at && !markingRef.current.has(m.id)
     );
     if (unreadMessages.length === 0) return;
 
     const ids = unreadMessages.map((m) => m.id);
+    ids.forEach((id) => markingRef.current.add(id));
+
+    const now = new Date().toISOString();
     supabase
       .from("messages")
-      .update({ read_at: new Date().toISOString() })
+      .update({ read_at: now })
       .in("id", ids)
-      .then(() => {
+      .then(({ error }) => {
+        if (error) {
+          ids.forEach((id) => markingRef.current.delete(id));
+          return;
+        }
         qc.setQueryData<Message[]>(queryKey, (prev) =>
           prev?.map((m) =>
-            ids.includes(m.id) ? { ...m, read_at: new Date().toISOString() } : m
+            ids.includes(m.id) ? { ...m, read_at: now } : m
           )
         );
+        qc.invalidateQueries({ queryKey: ["unread-badge"] });
       });
   }, [messages, me, peerId, qc, queryKey]);
 
