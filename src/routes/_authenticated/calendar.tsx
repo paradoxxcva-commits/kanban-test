@@ -478,7 +478,7 @@ function CalendarPage() {
       )}
 
       {/* iCal Dialog */}
-      <IcalDialog open={icalOpen} onOpenChange={setIcalOpen} userId={user?.id ?? null} />
+      <IcalDialog open={icalOpen} onOpenChange={setIcalOpen} userId={user?.id ?? null} calendars={calendarsQ.data ?? []} />
 
       {/* Event Detail Dialog */}
       {selectedEvent && (
@@ -799,70 +799,138 @@ function SendTaskToCalendarDialog({
   );
 }
 
-function IcalDialog({ open, onOpenChange, userId }: { open: boolean; onOpenChange: (v: boolean) => void; userId: string | null }) {
-  const tokenQ = useQuery({
-    queryKey: ["calendar-token", userId],
-    queryFn: () => (userId ? getActiveCalendarToken(userId) : Promise.resolve(null)),
+function IcalDialog({
+  open,
+  onOpenChange,
+  userId,
+  calendars,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  userId: string | null;
+  calendars: any[];
+}) {
+  const [selectedCalId, setSelectedCalId] = useState<string>("__all__");
+
+  const tokensQ = useQuery({
+    queryKey: ["calendar-tokens", userId],
+    queryFn: () => (userId ? getCalendarTokens(userId) : Promise.resolve([])),
     enabled: !!userId && open,
   });
 
+  const tokens = tokensQ.data ?? [];
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  const existingToken = selectedCalId === "__all__"
+    ? tokens.find((t) => !t.calendar_id)
+    : tokens.find((t) => t.calendar_id === selectedCalId);
+
+  const url = existingToken
+    ? `${origin}/api/public/ical/${existingToken.token}`
+    : "";
+
+  const calName = selectedCalId === "__all__"
+    ? "Все задачи"
+    : calendars.find((c) => c.id === selectedCalId)?.name ?? "Календарь";
+
   const onCreate = async () => {
     if (!userId) return;
-    await getOrCreateCalendarToken(userId);
-    tokenQ.refetch();
-  };
-  const onRevoke = async () => {
-    if (!tokenQ.data) return;
-    if (!confirm("Сбросить текущий токен? Старая ссылка перестанет работать.")) return;
-    await revokeCalendarToken(tokenQ.data.id);
-    tokenQ.refetch();
+    const calId = selectedCalId === "__all__" ? null : selectedCalId;
+    await getOrCreateCalendarToken(userId, calId);
+    tokensQ.refetch();
   };
 
-  const url = tokenQ.data
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/api/public/ical/${tokenQ.data.token}`
-    : "";
+  const onRevoke = async (tokenId: string) => {
+    if (!confirm("Сбросить токен? Старая ссылка перестанет работать.")) return;
+    await revokeCalendarToken(tokenId);
+    tokensQ.refetch();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>iCal-фид</DialogTitle>
         </DialogHeader>
-        {tokenQ.data ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Защищённая ссылка для подписки в Яндекс.Календаре, Google Calendar или Apple. Включает все задачи ваших досок со сроком.
-            </p>
-            <div className="rounded-md border border-border bg-surface p-2 text-xs font-mono break-all text-foreground">
-              {url}
+        <div className="space-y-4">
+          <div>
+            <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+              Выберите календарь
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(url);
-                  toast.success("Ссылка скопирована");
-                }}
-              >
-                <Copy className="h-4 w-4" /> Скопировать
-              </Button>
-              <Button size="sm" variant="ghost" onClick={onRevoke}>
-                <RotateCcw className="h-4 w-4" /> Сбросить
+            <select
+              value={selectedCalId}
+              onChange={(e) => setSelectedCalId(e.target.value)}
+              className="ring-focus block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="__all__">Все задачи (по доскам)</option>
+              {calendars.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {existingToken ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Ссылка для «{calName}»:
+              </p>
+              <div className="rounded-md border border-border bg-surface p-2 text-xs font-mono break-all text-foreground">
+                {url}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(url);
+                    toast.success("Ссылка скопирована");
+                  }}
+                >
+                  <Copy className="h-4 w-4" /> Скопировать
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => onRevoke(existingToken.id)}>
+                  <RotateCcw className="h-4 w-4" /> Сбросить
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Ссылка для «{calName}» ещё не создана.
+              </p>
+              <Button size="sm" onClick={onCreate}>
+                <Link2 className="h-4 w-4" /> Создать ссылку
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              В Яндекс.Календаре: «Добавить календарь → По ссылке» — вставьте URL.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Ссылка ещё не создана.</p>
-            <Button size="sm" onClick={onCreate}>
-              <Link2 className="h-4 w-4" /> Создать ссылку
-            </Button>
-          </div>
-        )}
+          )}
+
+          {tokens.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                Все активные ссылки
+              </div>
+              <div className="space-y-1.5">
+                {tokens.map((t) => {
+                  const name = !t.calendar_id
+                    ? "Все задачи"
+                    : calendars.find((c) => c.id === t.calendar_id)?.name ?? "Удалённый календарь";
+                  return (
+                    <div key={t.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                      <span className="text-sm text-foreground truncate">{name}</span>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onRevoke(t.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            В Яндекс.Календаре: «Добавить календарь → По ссылке» — вставьте URL.
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
   );

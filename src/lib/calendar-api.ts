@@ -1,10 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { TaskRow } from "./boards-api";
 
+type AnyClient = any;
+
 export interface CalendarTokenRow {
   id: string;
   user_id: string;
   token: string;
+  calendar_id: string | null;
   created_at: string;
   revoked_at: string | null;
 }
@@ -40,13 +43,38 @@ export async function getActiveCalendarToken(userId: string): Promise<CalendarTo
   return (data as CalendarTokenRow | null) ?? null;
 }
 
-export async function getOrCreateCalendarToken(userId: string): Promise<CalendarTokenRow> {
-  const existing = await getActiveCalendarToken(userId);
-  if (existing) return existing;
-  const token = randomHex(16);
-  const { data, error } = await supabase
+export async function getCalendarTokens(userId: string): Promise<CalendarTokenRow[]> {
+  const client = supabase as AnyClient;
+  const { data, error } = await client
     .from("calendar_tokens")
-    .insert({ user_id: userId, token })
+    .select("*")
+    .eq("user_id", userId)
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as CalendarTokenRow[];
+}
+
+export async function getOrCreateCalendarToken(
+  userId: string,
+  calendarId?: string | null
+): Promise<CalendarTokenRow> {
+  const client = supabase as AnyClient;
+  const calId = calendarId ?? null;
+  const { data: existing } = await client
+    .from("calendar_tokens")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("calendar_id", calId)
+    .is("revoked_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (existing) return existing as CalendarTokenRow;
+
+  const token = randomHex(16);
+  const { data, error } = await client
+    .from("calendar_tokens")
+    .insert({ user_id: userId, token, calendar_id: calId })
     .select()
     .single();
   if (error) throw error;
