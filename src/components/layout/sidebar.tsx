@@ -58,7 +58,6 @@ const baseNav: NavItem[] = [
   { to: "/boards", label: "Доски", icon: KanbanSquare },
   { to: "/calendar", label: "Календарь", icon: CalendarDays },
   { to: "/chat", label: "Чат", icon: MessageSquare },
-  { to: "/chat-pb", label: "Чат (PB)", icon: MessageSquare },
   { to: "/members", label: "Команда", icon: Users },
 ];
 

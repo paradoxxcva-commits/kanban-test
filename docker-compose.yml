@@ -155,19 +155,6 @@ services:
       - ./kong.yml:/etc/kong/kong.yml:ro
 
   # ==========================================
-  # PocketBase (альтернативный чат-движок)
-  # ==========================================
-  pocketbase:
-    image: pocketbase/pocketbase:latest
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:8090:8090'
-    volumes:
-      - pocketbase-data:/pb/pb_data
-    environment:
-      PB_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
-
-  # ==========================================
   # Приложение (TanStack Start)
   # ==========================================
   app:
@@ -198,4 +185,3 @@ services:
 volumes:
   supabase-db-data:
   supabase-storage-data:
-  pocketbase-data:
