@@ -28,11 +28,13 @@ import {
   type TaskRow,
 } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
+import { createNotification } from "@/lib/notifications-api";
 import { toast } from "sonner";
-import { Trash2, Calendar, Loader2 } from "lucide-react";
+import { Trash2, Calendar, Loader2, Bell } from "lucide-react";
 import { listCalendars, sendTaskToCalendar } from "@/lib/calendar.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskComments, getUnreadCommentCount } from "./task-comments";
+import { TaskReminderDialog } from "./task-reminder-dialog";
 import type { CommentRow } from "@/lib/comments-api";
 
 interface Member {
@@ -139,6 +141,17 @@ export function TaskDialog({
         if (columnId !== task.column_id) {
           await supabase.from("tasks").update({ column_id: columnId }).eq("id", task.id);
         }
+        if (assigneeId !== "none" && assigneeId !== task.assignee_id && profile?.org_id) {
+          createNotification({
+            userId: assigneeId,
+            orgId: profile.org_id,
+            type: "task_assigned",
+            title: title.trim(),
+            body: `Задача назначена вам`,
+            link: `/boards/${boardId}`,
+            entityId: task.id,
+          }).catch(() => {});
+        }
       } else {
         await createTask({
           board_id: boardId,
@@ -150,6 +163,16 @@ export function TaskDialog({
           due_date: payload.due_date,
           created_by: user.id,
         });
+        if (assigneeId !== "none" && profile?.org_id) {
+          createNotification({
+            userId: assigneeId,
+            orgId: profile.org_id,
+            type: "task_assigned",
+            title: title.trim(),
+            body: `Новая задача назначена вам`,
+            link: `/boards/${boardId}`,
+          }).catch(() => {});
+        }
       }
     },
     onSuccess: () => {
@@ -175,6 +198,9 @@ export function TaskDialog({
   const [sendCalendarOpen, setSendCalendarOpen] = useState(false);
   const [sendCalendarId, setSendCalendarId] = useState("");
   const [sendBusy, setSendBusy] = useState(false);
+
+  // Reminder
+  const [reminderOpen, setReminderOpen] = useState(false);
 
   const { data: calendars } = useQuery({
     queryKey: ["calendars", profile?.org_id],
@@ -305,6 +331,16 @@ export function TaskDialog({
               <Calendar className="h-4 w-4" />
               В календарь
             </Button>
+            {task.due_date && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setReminderOpen(true)}
+              >
+                <Bell className="h-4 w-4" />
+                Напоминание
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -391,6 +427,15 @@ export function TaskDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Reminder Dialog */}
+      {task && (
+        <TaskReminderDialog
+          taskId={task.id}
+          open={reminderOpen}
+          onOpenChange={setReminderOpen}
+        />
+      )}
     </Dialog>
   );
 }

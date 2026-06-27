@@ -1,8 +1,9 @@
-import { Bell, Search, Sun, Moon, LogOut } from "lucide-react";
+import { Search, Sun, Moon, LogOut } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { NotificationCenter } from "./notification-center";
 
 function initials(name: string | null | undefined, email: string | undefined) {
   const src = (name && name.trim()) || email || "?";
@@ -63,14 +64,7 @@ export function Topbar() {
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <button
-        type="button"
-        aria-label="Уведомления"
-        className="ring-focus relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground transition hover:text-foreground"
-      >
-        <Bell className="h-4 w-4" />
-        <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand" />
-      </button>
+      <NotificationCenter />
 
       <div className="flex items-center gap-2 rounded-md border border-border bg-surface py-1 pl-1 pr-3">
         <div className="flex h-7 w-7 items-center justify-center rounded bg-accent text-xs font-semibold text-accent-foreground">

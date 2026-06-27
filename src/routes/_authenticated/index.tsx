@@ -1,10 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
-import { KanbanSquare, CheckCircle2, Clock, Users, TrendingUp, Plus } from "lucide-react";
+import { KanbanSquare, CheckCircle2, Clock, Users, TrendingUp, Plus, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { TasksChart } from "@/components/dashboard/tasks-chart";
+import { PriorityChart } from "@/components/dashboard/priority-chart";
+import { WorkloadChart } from "@/components/dashboard/workload-chart";
+import { CompletionChart } from "@/components/dashboard/completion-chart";
+import { useState } from "react";
+
+type AnyClient = any;
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -21,7 +27,7 @@ interface Stat {
   value: string;
   delta: string;
   icon: typeof KanbanSquare;
-  tone: "brand" | "success" | "muted";
+  tone: "brand" | "success" | "muted" | "danger";
 }
 
 function StatCard({ stat }: { stat: Stat }) {
@@ -30,7 +36,9 @@ function StatCard({ stat }: { stat: Stat }) {
       ? "bg-brand/15 text-brand"
       : stat.tone === "success"
         ? "bg-success/15 text-success"
-        : "bg-accent text-muted-foreground";
+        : stat.tone === "danger"
+          ? "bg-destructive/15 text-destructive"
+          : "bg-accent text-muted-foreground";
   return (
     <div className="surface-card p-5 shadow-card transition hover:border-border/80">
       <div className="flex items-start justify-between">
@@ -52,12 +60,14 @@ function StatCard({ stat }: { stat: Stat }) {
 function DashboardPage() {
   const { profile, user, hasRole } = useAuth();
   const canCreateBoard = hasRole("admin") || hasRole("super_admin");
+  const [period, setPeriod] = useState(30);
 
   const { data: counts } = useQuery({
     queryKey: ["dashboard-counts"],
     queryFn: async () => {
+      const client = supabase as AnyClient;
       const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [boards, openTasks, closedTasks, members] = await Promise.all([
+      const [boards, openTasks, closedTasks, members, overdue] = await Promise.all([
         supabase.from("boards").select("id", { count: "exact", head: true }),
         supabase.from("tasks").select("id", { count: "exact", head: true }).is("completed_at", null),
         supabase
@@ -66,12 +76,14 @@ function DashboardPage() {
           .not("completed_at", "is", null)
           .gte("completed_at", since30),
         supabase.from("profiles").select("id", { count: "exact", head: true }),
+        client.rpc("overdue_tasks_count"),
       ]);
       return {
         boards: boards.count ?? 0,
         open: openTasks.count ?? 0,
         closed: closedTasks.count ?? 0,
         members: members.count ?? 0,
+        overdue: Number(overdue.data ?? 0),
       };
     },
   });
@@ -80,6 +92,7 @@ function DashboardPage() {
     { label: "Активные доски", value: String(counts?.boards ?? "—"), delta: "по организации", icon: KanbanSquare, tone: "brand" },
     { label: "Открытые задачи", value: String(counts?.open ?? "—"), delta: "в работе", icon: Clock, tone: "muted" },
     { label: "Закрыто за месяц", value: String(counts?.closed ?? "—"), delta: "за 30 дн.", icon: CheckCircle2, tone: "success" },
+    { label: "Просроченные", value: String(counts?.overdue ?? "—"), delta: "без срока", icon: AlertTriangle, tone: "danger" },
     { label: "Участников", value: String(counts?.members ?? "—"), delta: "в организации", icon: Users, tone: "muted" },
   ];
 
@@ -111,34 +124,65 @@ function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {stats.map((s) => (
             <StatCard key={s.label} stat={s} />
           ))}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Аналитика</h2>
+          <div className="flex gap-1">
+            {[
+              { label: "7д", value: 7 },
+              { label: "30д", value: 30 },
+              { label: "90д", value: 90 },
+              { label: "365д", value: 365 },
+            ].map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                  period === p.value
+                    ? "bg-brand text-brand-foreground"
+                    : "text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <section className="surface-card p-5 lg:col-span-2">
             <div className="mb-4 flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-brand" />
-              <h2 className="text-sm font-semibold text-foreground">Активность</h2>
+              <h2 className="text-sm font-semibold text-foreground">Создано / Закрыто</h2>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Лента активности появится, когда команда начнёт работать с задачами на досках.
-            </p>
+            <CompletionChart period={period} />
           </section>
 
           <section className="surface-card p-5">
-            <div className="text-sm font-semibold text-foreground">Быстрые действия</div>
-            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-              <div>• Создайте первую доску</div>
-              <div>• Пригласите коллег (через администратора)</div>
-              <div>• Подключите календарь iCal</div>
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-brand" />
+              <h2 className="text-sm font-semibold text-foreground">По приоритетам</h2>
             </div>
+            <PriorityChart period={period} />
           </section>
         </div>
 
-        <TasksChart />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className="surface-card p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-brand" />
+              <h2 className="text-sm font-semibold text-foreground">Нагрузка по исполнителям</h2>
+            </div>
+            <WorkloadChart period={period} />
+          </section>
+
+          <TasksChart />
+        </div>
       </div>
     </AppShell>
   );

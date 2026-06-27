@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader2, Palette, Bell, Globe } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { useAuth } from "@/lib/auth-context";
+import {
+  getNotificationPrefs,
+  updateNotificationPrefs,
+  type NotificationPrefs,
+} from "@/lib/notifications-api";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Настройки — Планка" }] }),
@@ -15,8 +21,12 @@ function SettingsPage() {
   const { profile, hasRole } = useAuth();
 
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "dark");
-  const [notifications, setNotifications] = useState(() => localStorage.getItem("notifications") !== "false");
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getNotificationPrefs().then(setPrefs).catch(() => {});
+  }, []);
 
   const applyTheme = (value: string) => {
     setTheme(value);
@@ -25,17 +35,28 @@ function SettingsPage() {
     document.documentElement.classList.toggle("light", value === "light");
   };
 
-  const toggleNotifications = async () => {
-    const next = !notifications;
-    if (next && "Notification" in window) {
+  const togglePref = async (key: keyof NotificationPrefs) => {
+    if (!prefs) return;
+    const next = { ...prefs, [key]: !prefs[key] };
+    setPrefs(next);
+    try {
+      await updateNotificationPrefs({ [key]: next[key] });
+    } catch {
+      setPrefs(prefs);
+      toast.error("Ошибка сохранения");
+    }
+  };
+
+  const toggleBrowserPush = async () => {
+    if (!prefs) return;
+    if (!prefs.browser_push && "Notification" in window) {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         toast.error("Браузер запретил уведомления");
         return;
       }
     }
-    setNotifications(next);
-    localStorage.setItem("notifications", String(next));
+    await togglePref("browser_push");
   };
 
   return (
@@ -73,15 +94,52 @@ function SettingsPage() {
             <Bell className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold text-foreground">Уведомления</h2>
           </div>
-          <label className="flex cursor-pointer items-center gap-3">
-            <input
-              type="checkbox"
-              checked={notifications}
-              onChange={toggleNotifications}
-              className="h-4 w-4 rounded border-input"
-            />
-            <span className="text-sm text-foreground">Показывать всплывающие уведомления</span>
-          </label>
+          {prefs ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground">Сообщения</p>
+                  <p className="text-xs text-muted-foreground">Уведомления о новых сообщениях в чате</p>
+                </div>
+                <Switch checked={prefs.message_enabled} onCheckedChange={() => togglePref("message_enabled")} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground">Задачи</p>
+                  <p className="text-xs text-muted-foreground">Назначение задач и приближение срока</p>
+                </div>
+                <Switch checked={prefs.task_enabled} onCheckedChange={() => togglePref("task_enabled")} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground">Комментарии</p>
+                  <p className="text-xs text-muted-foreground">Новые комментарии к вашим задачам</p>
+                </div>
+                <Switch checked={prefs.comment_enabled} onCheckedChange={() => togglePref("comment_enabled")} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground">Напоминания</p>
+                  <p className="text-xs text-muted-foreground">Напоминания о сроках задач</p>
+                </div>
+                <Switch checked={prefs.reminder_enabled} onCheckedChange={() => togglePref("reminder_enabled")} />
+              </div>
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-foreground">Всплывающие уведомления</p>
+                    <p className="text-xs text-muted-foreground">Browser push когда вкладка скрыта</p>
+                  </div>
+                  <Switch checked={prefs.browser_push} onCheckedChange={toggleBrowserPush} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Загрузка...
+            </div>
+          )}
         </section>
 
         <section className="surface-card space-y-4 p-5">

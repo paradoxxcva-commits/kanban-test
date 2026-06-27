@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
+import { createNotification } from "@/lib/notifications-api";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Чат — Планка" }] }),
@@ -209,6 +210,7 @@ function SuperAdminChat({
               me={user.id}
               peerId={selected}
               peer={supportChats?.find((u) => u.id === selected)}
+              orgId={supportChats?.find((u) => u.id === selected)?.org_id}
               onOpen={() => {
                 setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
               }}
@@ -398,6 +400,7 @@ function UserChat({
                   ? superAdmin
                   : users?.find((u) => u.id === selected)
               }
+              orgId={profile?.org_id}
               onOpen={() => {
                 setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
               }}
@@ -417,11 +420,13 @@ function ChatThread({
   me,
   peerId,
   peer,
+  orgId,
   onOpen,
 }: {
   me: string;
   peerId: string;
   peer?: OrgUser | null;
+  orgId?: string | null;
   onOpen?: () => void;
 }) {
   const qc = useQueryClient();
@@ -536,6 +541,16 @@ function ChatThread({
       return;
     }
     setBody("");
+    if (orgId) {
+      createNotification({
+        userId: peerId,
+        orgId,
+        type: "message",
+        title: peer?.full_name || peer?.email || "Новое сообщение",
+        body: body.trim() || "Файл",
+        link: "/chat",
+      }).catch(() => {});
+    }
   };
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
