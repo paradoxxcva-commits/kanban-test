@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
@@ -39,6 +39,7 @@ import { useAuth } from "@/lib/auth-context";
 import { KanbanColumn } from "@/components/boards/kanban-column";
 import { TaskCard } from "@/components/boards/task-card";
 import { TaskDialog } from "@/components/boards/task-dialog";
+import { BoardFilters } from "@/components/boards/board-filters";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/boards/$boardId")({
@@ -93,17 +94,43 @@ function BoardPage() {
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [newColName, setNewColName] = useState("");
 
+  // Filters
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterPriority, setFilterPriority] = useState<string[]>([]);
+  const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (filterSearch) {
+        const q = filterSearch.toLowerCase();
+        if (
+          !t.title.toLowerCase().includes(q) &&
+          !(t.description?.toLowerCase().includes(q))
+        )
+          return false;
+      }
+      if (filterPriority.length > 0 && !filterPriority.includes(t.priority ?? "normal"))
+        return false;
+      if (filterAssignee.length > 0 && t.assignee_id && !filterAssignee.includes(t.assignee_id))
+        return false;
+      if (filterStatus === "open" && t.completed_at) return false;
+      if (filterStatus === "completed" && !t.completed_at) return false;
+      return true;
+    });
+  }, [tasks, filterSearch, filterPriority, filterAssignee, filterStatus]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const tasksByColumn = useMemo(() => {
     const map = new Map<string, TaskRow[]>();
     (data?.columns ?? []).forEach((c) => map.set(c.id, []));
-    for (const t of tasks) {
+    for (const t of filteredTasks) {
       if (t.column_id && map.has(t.column_id)) map.get(t.column_id)!.push(t);
     }
     for (const arr of map.values()) arr.sort((a, b) => a.position - b.position);
     return map;
-  }, [tasks, data?.columns]);
+  }, [filteredTasks, data?.columns]);
 
   // Fetch comment counts and full comments for unread tracking
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
@@ -330,6 +357,22 @@ function BoardPage() {
               </Button>
             )}
           </div>
+        </div>
+
+        <div className="px-6 pb-2">
+          <BoardFilters
+            search={filterSearch}
+            onSearchChange={setFilterSearch}
+            priority={filterPriority}
+            onPriorityChange={setFilterPriority}
+            assignee={filterAssignee}
+            onAssigneeChange={setFilterAssignee}
+            status={filterStatus}
+            onStatusChange={setFilterStatus}
+            members={members ?? []}
+            totalCount={tasks.length}
+            filteredCount={filteredTasks.length}
+          />
         </div>
 
         <DndContext
