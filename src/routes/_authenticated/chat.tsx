@@ -94,14 +94,15 @@ function SuperAdminChat({
   const { data: supportChats } = useQuery({
     queryKey: ["support-chats", user.id],
     queryFn: async () => {
-      const { data: received } = await supabase
+      const client = supabase as any;
+      const { data: received } = await client
         .from("messages")
         .select("sender_id, recipient_id, inserted_at")
         .eq("recipient_id", user.id)
         .order("inserted_at", { ascending: false });
 
       const peerIds = new Set<string>();
-      (received ?? []).forEach((m) => {
+      (received ?? []).forEach((m: any) => {
         if (m.sender_id !== user.id) peerIds.add(m.sender_id);
       });
 
@@ -120,7 +121,7 @@ function SuperAdminChat({
         const { data: orgs } = await supabase
           .from("organizations")
           .select("id, name")
-          .in("id", orgIds);
+          .in("id", orgIds.filter((id): id is string => id !== null));
         (orgs ?? []).forEach((o: any) => (orgNames[o.id] = o.name));
       }
 
@@ -136,10 +137,11 @@ function SuperAdminChat({
   useEffect(() => {
     if (!supportChats || !user) return;
     let cancelled = false;
+    const client = supabase as any;
     (async () => {
       const results: Record<string, number> = {};
       for (const chat of supportChats) {
-        const { count } = await supabase
+        const { count } = await client
           .from("messages")
           .select("id", { count: "exact", head: true })
           .eq("sender_id", chat.id)
@@ -285,10 +287,11 @@ function UserChat({
   useEffect(() => {
     if (!allContacts.length || !user) return;
     let cancelled = false;
+    const client = supabase as any;
     (async () => {
       const results: Record<string, number> = {};
       for (const c of allContacts) {
-        const { count } = await supabase
+        const { count } = await client
           .from("messages")
           .select("id", { count: "exact", head: true })
           .eq("sender_id", c.id)
@@ -434,7 +437,8 @@ function ChatThread({
   const { data: messages = [] } = useQuery({
     queryKey,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const client = supabase as any;
+      const { data, error } = await client
         .from("messages")
         .select("id, sender_id, recipient_id, content, body, attachment_url, attachment_name, attachment_size, attachment_mime, created_at, inserted_at, updated_at, read_at")
         .or(
@@ -470,11 +474,12 @@ function ChatThread({
     ids.forEach((id) => markingRef.current.add(id));
 
     const now = new Date().toISOString();
-    supabase
+    const client = supabase as any;
+    client
       .from("messages")
       .update({ read_at: now })
       .in("id", ids)
-      .then(({ error }) => {
+      .then(({ error }: any) => {
         if (error) {
           ids.forEach((id) => markingRef.current.delete(id));
           return;
@@ -534,7 +539,8 @@ function ChatThread({
   }) => {
     if (!body.trim() && !attachment) return;
     setBusy(true);
-    const { error } = await supabase.from("messages").insert({
+    const client = supabase as any;
+    const { error } = await client.from("messages").insert({
       sender_id: me,
       recipient_id: peerId,
       content: body.trim() || "",
