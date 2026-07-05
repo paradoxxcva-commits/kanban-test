@@ -4,6 +4,8 @@ import { KanbanSquare, CheckCircle2, Clock, Users, TrendingUp, Plus, AlertTriang
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useOrg } from "@/lib/org-context";
+import { OrgGuard } from "@/components/layout/org-selector";
 import { TasksChart } from "@/components/dashboard/tasks-chart";
 import { PriorityChart } from "@/components/dashboard/priority-chart";
 import { WorkloadChart } from "@/components/dashboard/workload-chart";
@@ -59,24 +61,35 @@ function StatCard({ stat }: { stat: Stat }) {
 
 function DashboardPage() {
   const { profile, user, hasRole } = useAuth();
+  const { selectedOrgId, isSuperAdmin } = useOrg();
   const canCreateBoard = hasRole("admin") || hasRole("super_admin");
   const [period, setPeriod] = useState(30);
 
   const { data: counts } = useQuery({
-    queryKey: ["dashboard-counts"],
+    queryKey: ["dashboard-counts", selectedOrgId],
     queryFn: async () => {
       const client = supabase as AnyClient;
       const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
+
+      let boardsQ = supabase.from("boards").select("id", { count: "exact", head: true });
+      let openTasksQ = supabase.from("tasks").select("id", { count: "exact", head: true }).is("completed_at", null).is("archived_at", null);
+      let closedTasksQ = supabase.from("tasks").select("id", { count: "exact", head: true }).not("completed_at", "is", null).gte("completed_at", since30).is("archived_at", null);
+      let membersQ = supabase.from("profiles").select("id", { count: "exact", head: true });
+
+      if (isSuperAdmin && selectedOrgId) {
+        boardsQ = boardsQ.eq("org_id", selectedOrgId);
+        // For tasks, we need to filter by board's org_id — use a join
+        openTasksQ = openTasksQ.eq("boards.org_id", selectedOrgId);
+        closedTasksQ = closedTasksQ.eq("boards.org_id", selectedOrgId);
+        membersQ = membersQ.eq("org_id", selectedOrgId);
+      }
+
       const [boards, openTasks, closedTasks, members, overdue] = await Promise.all([
-        supabase.from("boards").select("id", { count: "exact", head: true }),
-        supabase.from("tasks").select("id", { count: "exact", head: true }).is("completed_at", null),
-        supabase
-          .from("tasks")
-          .select("id", { count: "exact", head: true })
-          .not("completed_at", "is", null)
-          .gte("completed_at", since30),
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-        client.rpc("overdue_tasks_count"),
+        boardsQ,
+        openTasksQ,
+        closedTasksQ,
+        membersQ,
+        client.rpc("overdue_tasks_count", isSuperAdmin && selectedOrgId ? { _org_id: selectedOrgId } : {}),
       ]);
       return {
         boards: boards.count ?? 0,
@@ -86,6 +99,7 @@ function DashboardPage() {
         overdue: Number(overdue.data ?? 0),
       };
     },
+    enabled: !isSuperAdmin || !!selectedOrgId,
   });
 
   const stats: Stat[] = [
@@ -100,6 +114,7 @@ function DashboardPage() {
 
   return (
     <AppShell>
+      <OrgGuard>
       <div className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -184,6 +199,7 @@ function DashboardPage() {
           <TasksChart />
         </div>
       </div>
+      </OrgGuard>
     </AppShell>
   );
 }

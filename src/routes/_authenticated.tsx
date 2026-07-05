@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
+import { OrgProvider } from "@/lib/org-context";
 import { KanbanSquare } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -22,5 +23,9 @@ function AuthLayout() {
   }
   if (!session) return <Navigate to="/login" replace />;
   if (isSuspended) return <Navigate to="/suspended" replace />;
-  return <Outlet />;
+  return (
+    <OrgProvider>
+      <Outlet />
+    </OrgProvider>
+  );
 }

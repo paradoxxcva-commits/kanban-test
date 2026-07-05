@@ -1,9 +1,11 @@
 import { Search, Sun, Moon, LogOut } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/lib/auth-context";
+import { useOrg } from "@/lib/org-context";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationCenter } from "./notification-center";
+import { OrgSelector } from "./org-selector";
 
 function initials(name: string | null | undefined, email: string | undefined) {
   const src = (name && name.trim()) || email || "?";
@@ -18,19 +20,21 @@ function initials(name: string | null | undefined, email: string | undefined) {
 export function Topbar() {
   const { theme, toggle } = useTheme();
   const { profile, user, roles, signOut } = useAuth();
+  const { selectedOrgId, isSuperAdmin } = useOrg();
 
   const { data: org } = useQuery({
-    queryKey: ["org", profile?.org_id],
+    queryKey: ["org", isSuperAdmin ? selectedOrgId : profile?.org_id],
     queryFn: async () => {
-      if (!profile?.org_id) return null;
+      const orgId = isSuperAdmin ? selectedOrgId : profile?.org_id;
+      if (!orgId) return null;
       const { data } = await supabase
         .from("organizations")
         .select("name")
-        .eq("id", profile.org_id)
+        .eq("id", orgId)
         .single();
       return data;
     },
-    enabled: !!profile?.org_id,
+    enabled: !!(isSuperAdmin ? selectedOrgId : profile?.org_id),
   });
 
   const roleLabel = roles.includes("super_admin")
@@ -54,6 +58,8 @@ export function Topbar() {
       </div>
 
       <div className="flex-1" />
+
+      {isSuperAdmin && <OrgSelector />}
 
       <button
         type="button"

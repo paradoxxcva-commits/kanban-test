@@ -147,3 +147,47 @@ export const renameColumn = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const archiveTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ taskId: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: task, error: fetchErr } = await supabaseAdmin
+      .from("tasks")
+      .select("board_id, boards!inner(org_id)")
+      .eq("id", data.taskId)
+      .single();
+    if (fetchErr || !task) throw new Error("Задача не найдена");
+    const orgId = (task as any).boards?.org_id;
+    if (!orgId) throw new Error("Не удалось определить организацию доски");
+    await ensureOrgAdmin(context as any, orgId);
+    const { error } = await supabaseAdmin
+      .from("tasks")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", data.taskId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const unarchiveTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ taskId: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: task, error: fetchErr } = await supabaseAdmin
+      .from("tasks")
+      .select("board_id, boards!inner(org_id)")
+      .eq("id", data.taskId)
+      .single();
+    if (fetchErr || !task) throw new Error("Задача не найдена");
+    const orgId = (task as any).boards?.org_id;
+    if (!orgId) throw new Error("Не удалось определить организацию доски");
+    await ensureOrgAdmin(context as any, orgId);
+    const { error } = await supabaseAdmin
+      .from("tasks")
+      .update({ archived_at: null })
+      .eq("id", data.taskId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

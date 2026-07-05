@@ -32,6 +32,7 @@ export interface TaskRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  archived_at: string | null;
 }
 
 export async function listBoards(): Promise<BoardRow[]> {
@@ -136,12 +137,15 @@ export async function deleteColumn(id: string, boardId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function listTasks(boardId: string): Promise<TaskRow[]> {
-  const { data, error } = await supabase
+export async function listTasks(boardId: string, opts?: { includeArchived?: boolean }): Promise<TaskRow[]> {
+  let query = supabase
     .from("tasks")
     .select("*")
-    .eq("board_id", boardId)
-    .order("position");
+    .eq("board_id", boardId);
+  if (!opts?.includeArchived) {
+    query = query.is("archived_at", null);
+  }
+  const { data, error } = await query.order("position");
   if (error) throw error;
   return (data ?? []) as TaskRow[];
 }

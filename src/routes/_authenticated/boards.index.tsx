@@ -4,9 +4,12 @@ import { useState } from "react";
 import { Plus, KanbanSquare, MoreHorizontal } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
-import { listBoards } from "@/lib/boards-api";
+import { supabase } from "@/integrations/supabase/client";
 import { CreateBoardDialog } from "@/components/boards/create-board-dialog";
 import { useAuth } from "@/lib/auth-context";
+import { useOrg } from "@/lib/org-context";
+import { OrgGuard } from "@/components/layout/org-selector";
+import type { BoardRow } from "@/lib/boards-api";
 
 export const Route = createFileRoute("/_authenticated/boards/")({
   head: () => ({
@@ -30,14 +33,25 @@ const COLOR_MAP: Record<string, string> = {
 function BoardsPage() {
   const [open, setOpen] = useState(false);
   const { hasRole } = useAuth();
+  const { selectedOrgId, isSuperAdmin } = useOrg();
   const canCreateBoard = hasRole("admin") || hasRole("super_admin");
   const { data: boards, isLoading } = useQuery({
-    queryKey: ["boards"],
-    queryFn: listBoards,
+    queryKey: ["boards", selectedOrgId],
+    queryFn: async (): Promise<BoardRow[]> => {
+      let query = supabase.from("boards").select("*");
+      if (isSuperAdmin && selectedOrgId) {
+        query = query.eq("org_id", selectedOrgId);
+      }
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as BoardRow[];
+    },
+    enabled: !isSuperAdmin || !!selectedOrgId,
   });
 
   return (
     <AppShell>
+      <OrgGuard>
       <div className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -112,6 +126,7 @@ function BoardsPage() {
         )}
       </div>
       <CreateBoardDialog open={open} onOpenChange={setOpen} />
+      </OrgGuard>
     </AppShell>
   );
 }

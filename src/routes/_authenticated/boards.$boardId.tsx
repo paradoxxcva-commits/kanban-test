@@ -13,7 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Archive, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import {
   type TaskRow,
 } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
+import { useOrg } from "@/lib/org-context";
 import { KanbanColumn } from "@/components/boards/kanban-column";
 import { TaskCard } from "@/components/boards/task-card";
 import { TaskDialog } from "@/components/boards/task-dialog";
@@ -57,30 +58,33 @@ function BoardPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { profile, user, hasRole } = useAuth();
+  const { selectedOrgId } = useOrg();
+
+  const canManageBoard = hasRole("admin") || hasRole("super_admin");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["board", boardId],
+    queryKey: ["board", boardId, showArchived],
     queryFn: async () => {
       const [board, columns, tasks] = await Promise.all([
         getBoard(boardId),
         listColumns(boardId),
-        listTasks(boardId),
+        listTasks(boardId, { includeArchived: showArchived }),
       ]);
       return { board, columns, tasks };
     },
   });
 
   const { data: members } = useQuery({
-    queryKey: ["members", profile?.org_id],
+    queryKey: ["members", selectedOrgId],
     queryFn: async (): Promise<Member[]> => {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .eq("org_id", profile!.org_id!);
+        .eq("org_id", selectedOrgId!);
       if (error) throw error;
       return (data ?? []) as Member[];
     },
-    enabled: !!profile?.org_id,
+    enabled: !!selectedOrgId,
   });
 
   // Local optimistic ordering
@@ -99,6 +103,7 @@ function BoardPage() {
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
   const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -317,8 +322,6 @@ function BoardPage() {
     );
   }
 
-  const canManageBoard = hasRole("admin") || hasRole("super_admin");
-
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-3.5rem)] flex-col">
@@ -342,6 +345,16 @@ function BoardPage() {
               <Button variant="secondary" onClick={() => setAddColumnOpen(true)} className="gap-1.5">
                 <Plus className="h-4 w-4" />
                 Колонка
+              </Button>
+            )}
+            {canManageBoard && (
+              <Button
+                variant={showArchived ? "default" : "outline"}
+                onClick={() => setShowArchived(!showArchived)}
+                className="gap-1.5"
+              >
+                <Archive className="h-4 w-4" />
+                Архив
               </Button>
             )}
             {canManageBoard && (
@@ -421,6 +434,7 @@ function BoardPage() {
         columns={data.columns}
         initialColumnId={taskDialogColumnId}
         task={editingTask}
+        isArchived={!!editingTask?.archived_at}
       />
 
       <Dialog open={addColumnOpen} onOpenChange={setAddColumnOpen}>

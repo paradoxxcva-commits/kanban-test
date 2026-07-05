@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Calendar, Flag, MessageSquare } from "lucide-react";
+import { Archive, Calendar, Flag, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "@/lib/boards-api";
 
@@ -31,6 +31,7 @@ export function TaskCard({
   unreadCount,
   onClick,
   overlay,
+  isArchived,
 }: {
   task: TaskRow;
   assigneeName?: string | null;
@@ -39,11 +40,12 @@ export function TaskCard({
   unreadCount?: number;
   onClick?: () => void;
   overlay?: boolean;
+  isArchived?: boolean;
 }) {
   const sortable = useSortable({
     id: task.id,
     data: { type: "task", columnId: task.column_id },
-    disabled: overlay,
+    disabled: overlay || isArchived,
   });
   const style = overlay
     ? undefined
@@ -67,10 +69,17 @@ export function TaskCard({
         sortable.isDragging && !overlay && "opacity-40",
         overlay && "shadow-card ring-1 ring-brand/40",
         done && "opacity-60",
+        isArchived && "opacity-50 grayscale",
       )}
     >
       <div className={cn("text-sm font-medium text-foreground", done && "line-through")}>
         {task.title}
+        {isArchived && (
+          <span className="ml-2 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <Archive className="h-3 w-3" />
+            В архиве
+          </span>
+        )}
       </div>
       {task.description && (
         <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>

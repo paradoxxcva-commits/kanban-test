@@ -28,9 +28,10 @@ import {
   type TaskRow,
 } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
+import { archiveTask, unarchiveTask } from "@/lib/board-admin.functions";
 import { createNotification } from "@/lib/notifications-api";
 import { toast } from "sonner";
-import { Trash2, Calendar, Loader2, Bell } from "lucide-react";
+import { Trash2, Calendar, Loader2, Bell, Archive, ArchiveRestore } from "lucide-react";
 import { listCalendars, sendTaskToCalendar } from "@/lib/calendar.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskComments, getUnreadCommentCount } from "./task-comments";
@@ -66,6 +67,7 @@ export function TaskDialog({
   columns,
   initialColumnId,
   task,
+  isArchived,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -73,9 +75,10 @@ export function TaskDialog({
   columns: ColumnRow[];
   initialColumnId?: string;
   task?: TaskRow | null;
+  isArchived?: boolean;
 }) {
   const qc = useQueryClient();
-  const { profile, user } = useAuth();
+  const { profile, user, hasRole } = useAuth();
   const isEdit = !!task;
 
   // Unread comment count for the tab badge
@@ -190,6 +193,32 @@ export function TaskDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["board", boardId] });
       onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const archiveMut = useMutation({
+    mutationFn: async () => {
+      if (!task) return;
+      await archiveTask({ data: { taskId: task.id } });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["board", boardId] });
+      onOpenChange(false);
+      toast.success("Задача архивирована");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const unarchiveMut = useMutation({
+    mutationFn: async () => {
+      if (!task) return;
+      await unarchiveTask({ data: { taskId: task.id } });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["board", boardId] });
+      onOpenChange(false);
+      toast.success("Задача разархивирована");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -340,6 +369,31 @@ export function TaskDialog({
                 <Bell className="h-4 w-4" />
                 Напоминание
               </Button>
+            )}
+            {(hasRole("admin") || hasRole("super_admin")) && (
+              isArchived ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (confirm("Разархивировать задачу?")) unarchiveMut.mutate();
+                  }}
+                >
+                  <ArchiveRestore className="h-4 w-4" />
+                  Разархивировать
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (confirm("Архивировать задачу?")) archiveMut.mutate();
+                  }}
+                >
+                  <Archive className="h-4 w-4" />
+                  Архивировать
+                </Button>
+              )
             )}
             <Button
               type="button"

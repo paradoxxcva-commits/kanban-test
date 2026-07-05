@@ -19,6 +19,8 @@ import { listColumns, type ColumnRow } from "@/lib/boards-api";
 import { TaskDialog } from "@/components/boards/task-dialog";
 import type { TaskRow } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
+import { useOrg } from "@/lib/org-context";
+import { OrgGuard } from "@/components/layout/org-selector";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ChevronLeft,
@@ -91,6 +93,7 @@ function sameDay(a: Date, b: Date) {
 
 function CalendarPage() {
   const { profile, user, hasRole } = useAuth();
+  const { selectedOrgId } = useOrg();
   const canManageCalendars = hasRole("admin") || hasRole("super_admin");
   const qc = useQueryClient();
 
@@ -131,9 +134,9 @@ function CalendarPage() {
 
   // Fetch calendars
   const calendarsQ = useQuery({
-    queryKey: ["calendars", profile?.org_id],
-    queryFn: () => listCalendars({ data: { orgId: profile!.org_id! } }),
-    enabled: !!profile?.org_id,
+    queryKey: ["calendars", selectedOrgId],
+    queryFn: () => listCalendars({ data: { orgId: selectedOrgId! } }),
+    enabled: !!selectedOrgId,
   });
 
   // Initialize selected calendars from localStorage or select all if empty
@@ -222,6 +225,7 @@ function CalendarPage() {
 
   return (
     <AppShell>
+      <OrgGuard>
       <div className="mx-auto max-w-7xl space-y-4 p-6 lg:p-8">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -257,7 +261,7 @@ function CalendarPage() {
             <Button variant="outline" size="sm" onClick={() => setIcalOpen(true)}>
               <Link2 className="h-4 w-4" /> iCal
             </Button>
-            {profile?.org_id && (
+            {selectedOrgId && (
               <Button variant="outline" size="sm" onClick={() => setCreateCalendarOpen(true)}>
                 <CalendarDays className="h-4 w-4" /> Календарь
               </Button>
@@ -450,7 +454,7 @@ function CalendarPage() {
       {/* Create Calendar Dialog */}
       {createCalendarOpen && (
         <CreateCalendarDialog
-          orgId={profile?.org_id!}
+          orgId={selectedOrgId!}
           canCreateOrg={canManageCalendars}
           onClose={() => setCreateCalendarOpen(false)}
           onCreated={() => {
@@ -514,6 +518,7 @@ function CalendarPage() {
           key={(editingTask?.id ?? "new")}
         />
       )}
+      </OrgGuard>
     </AppShell>
   );
 }

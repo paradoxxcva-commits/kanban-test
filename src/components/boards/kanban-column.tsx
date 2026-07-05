@@ -154,6 +154,7 @@ export function KanbanColumn({
                 commentCount={commentCounts[t.id]}
                 unreadCount={unreadCounts[t.id]}
                 onClick={() => onEditTask(t)}
+                isArchived={!!t.archived_at}
               />
             );
           })}
