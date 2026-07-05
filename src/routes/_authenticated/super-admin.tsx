@@ -14,6 +14,7 @@ import {
   updateUserActive,
   updateUserOrg,
   setUserRoles,
+  updateUserShowAds,
 } from "@/lib/admin.functions";
 import { Plus, Trash2, ShieldCheck, Calendar, Power, Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -153,6 +154,7 @@ function UsersPanel() {
   const setOrg = useServerFn(updateUserOrg);
 
   const setRolesFn = useServerFn(setUserRoles);
+  const setShowAdsFn = useServerFn(updateUserShowAds);
 
   const { data: users, refetch, isLoading } = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const { data: orgs } = useQuery({ queryKey: ["orgs"], queryFn: () => fetchOrgs() });
@@ -233,6 +235,15 @@ function UsersPanel() {
     }
   };
 
+  const toggleAds = async (userId: string, current: boolean) => {
+    try {
+      await setShowAdsFn({ data: { userId, showAds: !current } });
+      refetch();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+  };
+
   const onDelete = async (userId: string) => {
     if (!confirm("Удалить пользователя?")) return;
     try {
@@ -301,7 +312,7 @@ function UsersPanel() {
       </form>
 
       <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[950px] text-sm">
           <thead className="bg-surface text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Пользователь</th>
@@ -310,6 +321,7 @@ function UsersPanel() {
               <th className="px-3 py-2 text-left font-medium">Подписка до</th>
               <th className="px-3 py-2 text-left font-medium">Продлить</th>
               <th className="px-3 py-2 text-left font-medium">Активен</th>
+              <th className="px-3 py-2 text-left font-medium">Реклама</th>
               <th className="w-12" />
             </tr>
           </thead>
@@ -395,6 +407,14 @@ function UsersPanel() {
                       <Power className="h-3 w-3" />
                       {u.is_active ? "активен" : "выключен"}
                     </button>
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={u.show_ads !== false}
+                      onChange={() => toggleAds(u.id, u.show_ads !== false)}
+                      className="h-4 w-4 accent-brand"
+                    />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button onClick={() => onDelete(u.id)} className="text-destructive hover:text-destructive/80">

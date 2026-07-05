@@ -229,6 +229,22 @@ export const updateUserFullName = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateUserShowAds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ userId: z.string().uuid(), showAds: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ show_ads: data.showAds })
+      .eq("id", data.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const setUserRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

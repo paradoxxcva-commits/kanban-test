@@ -70,11 +70,6 @@ export function Topbar() {
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <div className="hidden rounded-lg bg-gradient-to-br from-brand/20 to-brand/5 px-3 py-1.5 text-center md:block">
-        <div className="text-[10px] font-medium text-foreground">Планируйте задачи эффективнее</div>
-        <div className="text-[9px] text-muted-foreground">Попробуйте Планка Плюс</div>
-      </div>
-
       <NotificationCenter />
 
       <div className="flex items-center gap-2 rounded-md border border-border bg-surface py-1 pl-1 pr-3">

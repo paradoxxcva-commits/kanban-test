@@ -12,6 +12,7 @@ export interface Profile {
   avatar_url: string | null;
   paid_until: string | null;
   is_active: boolean;
+  show_ads: boolean;
 }
 
 export interface AuthState {
