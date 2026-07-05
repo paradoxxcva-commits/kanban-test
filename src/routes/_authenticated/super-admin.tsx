@@ -15,6 +15,7 @@ import {
   updateUserOrg,
   setUserRoles,
   updateUserShowAds,
+  updateUserFullName,
 } from "@/lib/admin.functions";
 import { Plus, Trash2, ShieldCheck, Calendar, Power, Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -155,6 +156,7 @@ function UsersPanel() {
 
   const setRolesFn = useServerFn(setUserRoles);
   const setShowAdsFn = useServerFn(updateUserShowAds);
+  const setFullNameFn = useServerFn(updateUserFullName);
 
   const { data: users, refetch, isLoading } = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const { data: orgs } = useQuery({ queryKey: ["orgs"], queryFn: () => fetchOrgs() });
@@ -238,6 +240,25 @@ function UsersPanel() {
   const toggleAds = async (userId: string, current: boolean) => {
     try {
       await setShowAdsFn({ data: { userId, showAds: !current } });
+      refetch();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+  };
+
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameValue, setNameValue] = useState("");
+
+  const startEditName = (userId: string, currentName: string | null) => {
+    setEditingName(userId);
+    setNameValue(currentName || "");
+  };
+
+  const saveName = async (userId: string) => {
+    if (!nameValue.trim()) return;
+    try {
+      await setFullNameFn({ data: { userId, fullName: nameValue.trim() } });
+      setEditingName(null);
       refetch();
     } catch (err: any) {
       toast.error("Ошибка", { description: err.message });
@@ -334,7 +355,29 @@ function UsersPanel() {
               return (
                 <tr key={u.id} className="border-t border-border">
                   <td className="px-3 py-2">
-                    <div className="text-foreground">{u.full_name || "—"}</div>
+                    {editingName === u.id ? (
+                      <form
+                        onSubmit={(e) => { e.preventDefault(); saveName(u.id); }}
+                        className="flex items-center gap-1"
+                      >
+                        <input
+                          value={nameValue}
+                          onChange={(e) => setNameValue(e.target.value)}
+                          className="ring-focus w-full rounded border border-input bg-background px-2 py-0.5 text-sm"
+                          autoFocus
+                          onBlur={() => saveName(u.id)}
+                          onKeyDown={(e) => { if (e.key === "Escape") setEditingName(null); }}
+                        />
+                      </form>
+                    ) : (
+                      <div
+                        className="cursor-pointer text-foreground hover:underline"
+                        onClick={() => startEditName(u.id, u.full_name)}
+                        title="Нажмите для редактирования"
+                      >
+                        {u.full_name || "—"}
+                      </div>
+                    )}
                     <div className="text-[11px] text-muted-foreground">{u.email}</div>
                   </td>
                   <td className="px-3 py-2">
