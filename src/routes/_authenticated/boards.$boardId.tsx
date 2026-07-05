@@ -61,6 +61,7 @@ function BoardPage() {
   const { selectedOrgId } = useOrg();
 
   const canManageBoard = hasRole("admin") || hasRole("super_admin");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["board", boardId, showArchived],
@@ -103,7 +104,6 @@ function BoardPage() {
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
   const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showArchived, setShowArchived] = useState(false);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
