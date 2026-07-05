@@ -366,7 +366,7 @@ export function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={isEdit ? "max-w-xl" : "max-w-lg"}>
+      <DialogContent className={isEdit ? "max-w-2xl" : "max-w-lg"}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
           <DialogDescription>
