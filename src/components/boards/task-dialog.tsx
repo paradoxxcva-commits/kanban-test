@@ -348,7 +348,7 @@ export function TaskDialog({
           Задача выполнена
         </label>
       )}
-      <DialogFooter className="gap-2 sm:gap-2">
+      <DialogFooter className="gap-2 sm:flex-wrap sm:gap-2">
         {isEdit && task && (
           <>
             <Button
