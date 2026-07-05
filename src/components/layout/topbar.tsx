@@ -40,7 +40,7 @@ export function Topbar() {
   const roleLabel = roles.includes("super_admin")
     ? "Системный администратор"
     : roles.includes("admin")
-      ? "Администратор"
+      ? "Администратор организации"
       : "Сотрудник";
 
   return (
@@ -82,6 +82,10 @@ export function Topbar() {
           </div>
           {isSuperAdmin ? (
             <div className="text-[10px] font-semibold text-amber-500">
+              {roleLabel}
+            </div>
+          ) : roles.includes("admin") ? (
+            <div className="text-[10px] font-semibold text-blue-500">
               {roleLabel}
             </div>
           ) : (

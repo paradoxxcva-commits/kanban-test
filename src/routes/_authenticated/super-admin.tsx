@@ -13,6 +13,7 @@ import {
   updateUserPaidUntil,
   updateUserActive,
   updateUserOrg,
+  setUserRoles,
 } from "@/lib/admin.functions";
 import { Plus, Trash2, ShieldCheck, Calendar, Power, Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -151,6 +152,8 @@ function UsersPanel() {
   const setActive = useServerFn(updateUserActive);
   const setOrg = useServerFn(updateUserOrg);
 
+  const setRolesFn = useServerFn(setUserRoles);
+
   const { data: users, refetch, isLoading } = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const { data: orgs } = useQuery({ queryKey: ["orgs"], queryFn: () => fetchOrgs() });
 
@@ -214,6 +217,16 @@ function UsersPanel() {
     try {
       await setOrg({ data: { userId, orgId: orgId || null } });
       toast.success("Организация обновлена");
+      refetch();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+  };
+
+  const changeRole = async (userId: string, newRole: "user" | "admin" | "super_admin", orgId: string | null) => {
+    try {
+      await setRolesFn({ data: { userId, roles: [newRole], orgId } });
+      toast.success("Роль обновлена");
       refetch();
     } catch (err: any) {
       toast.error("Ошибка", { description: err.message });
@@ -325,13 +338,20 @@ function UsersPanel() {
                     </select>
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {(u.roles ?? []).map((r: string) => (
-                        <span key={r} className="rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground">
-                          {r}
-                        </span>
-                      ))}
-                    </div>
+                    {(u.roles ?? []).includes("super_admin") ? (
+                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-500">
+                        super_admin
+                      </span>
+                    ) : (
+                      <select
+                        value={(u.roles ?? []).includes("admin") ? "admin" : "user"}
+                        onChange={(e) => changeRole(u.id, e.target.value as "user" | "admin", u.org_id ?? null)}
+                        className="ring-focus rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      >
+                        <option value="user">Сотрудник</option>
+                        <option value="admin">Админ орг.</option>
+                      </select>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {u.paid_until ? (
