@@ -115,7 +115,7 @@ export const listCalendarEvents = createServerFn({ method: "GET" })
     const client = supabaseAdmin as AnyClient;
     const { data: events, error } = await client
       .from("calendar_events")
-      .select("id, calendar_id, task_id, title, description, start_time, end_time, all_day, created_by")
+      .select("id, calendar_id, task_id, title, description, start_time, end_time, all_day, created_by, is_done")
       .in("calendar_id", data.calendarIds)
       .gte("start_time", data.start)
       .lte("start_time", data.end)
@@ -173,6 +173,7 @@ export const updateCalendarEvent = createServerFn({ method: "POST" })
           startTime: z.string().optional(),
           endTime: z.string().optional(),
           allDay: z.boolean().optional(),
+          isDone: z.boolean().optional(),
         })
         .parse(d),
   )
@@ -185,6 +186,8 @@ export const updateCalendarEvent = createServerFn({ method: "POST" })
     if (data.startTime !== undefined) updates.start_time = data.startTime;
     if (data.endTime !== undefined) updates.end_time = data.endTime;
     if (data.allDay !== undefined) updates.all_day = data.allDay;
+    if (data.isDone !== undefined) updates.is_done = data.isDone;
+    if (data.isDone !== undefined) updates.is_done = data.isDone;
 
     const { error } = await client
       .from("calendar_events")

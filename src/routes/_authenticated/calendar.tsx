@@ -416,11 +416,15 @@ function CalendarPage() {
                               ev.dataTransfer.effectAllowed = "move";
                             }}
                             onClick={() => setSelectedEvent(e)}
-                            className={`flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] text-white cursor-grab active:cursor-grabbing ${COLOR_MAP[cal?.color ?? "brand"] ?? COLOR_MAP.brand}`}
+                            className={`flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] text-white cursor-grab active:cursor-grabbing ${e.is_done ? "opacity-50 grayscale" : ""} ${COLOR_MAP[cal?.color ?? "brand"] ?? COLOR_MAP.brand}`}
                             title={e.title}
                           >
-                            <Calendar className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{e.title}</span>
+                            {e.is_done ? (
+                              <Check className="h-3 w-3 shrink-0" />
+                            ) : (
+                              <Calendar className="h-3 w-3 shrink-0" />
+                            )}
+                            <span className={`truncate ${e.is_done ? "line-through" : ""}`}>{e.title}</span>
                           </button>
                         );
                       })}
@@ -1004,6 +1008,17 @@ function EventDetailDialog({
     setBusy(false);
   };
 
+  const toggleDone = async () => {
+    setBusy(true);
+    try {
+      await updateEvent({ data: { eventId: event.id, isDone: !event.is_done } });
+      onUpdated();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+    setBusy(false);
+  };
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
@@ -1075,7 +1090,19 @@ function EventDetailDialog({
                 {cal.name}
               </div>
             )}
-            <div className="text-lg font-semibold text-foreground">{event.title}</div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!event.is_done}
+                onChange={toggleDone}
+                disabled={busy}
+                className="h-4 w-4 accent-green-600"
+              />
+              <span className={event.is_done ? "text-green-600 font-medium" : "text-muted-foreground"}>
+                {event.is_done ? "Сделано" : "Отметить как сделано"}
+              </span>
+            </label>
+            <div className={`text-lg font-semibold ${event.is_done ? "text-muted-foreground line-through" : "text-foreground"}`}>{event.title}</div>
             {event.description && (
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{event.description}</p>
             )}
