@@ -54,6 +54,16 @@ export async function markAllNotificationsRead(): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function markMessageNotificationsRead(): Promise<void> {
+  const client = supabase as AnyClient;
+  const { error } = await client
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("type", "message")
+    .eq("is_read", false);
+  if (error) throw new Error(error.message);
+}
+
 export async function getNotificationPrefs(): Promise<NotificationPrefs> {
   const client = supabase as AnyClient;
   const { data, error } = await client.rpc("get_or_create_notification_prefs");

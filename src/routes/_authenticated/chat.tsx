@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
-import { createNotification } from "@/lib/notifications-api";
+import { createNotification, markMessageNotificationsRead } from "@/lib/notifications-api";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Чат — Планка" }] }),
@@ -24,15 +24,12 @@ interface Message {
   id: string;
   sender_id: string;
   recipient_id: string;
-  content: string | null;
   body: string | null;
   attachment_url: string | null;
   attachment_name: string | null;
   attachment_size: number | null;
   attachment_mime: string | null;
   created_at: string;
-  inserted_at: string;
-  updated_at: string;
   read_at: string | null;
 }
 
@@ -440,11 +437,11 @@ function ChatThread({
       const client = supabase as any;
       const { data, error } = await client
         .from("messages")
-        .select("id, sender_id, recipient_id, content, body, attachment_url, attachment_name, attachment_size, attachment_mime, created_at, inserted_at, updated_at, read_at")
+        .select("id, sender_id, recipient_id, body, attachment_url, attachment_name, attachment_size, attachment_mime, created_at, read_at")
         .or(
           `and(sender_id.eq.${me},recipient_id.eq.${peerId}),and(sender_id.eq.${peerId},recipient_id.eq.${me})`
         )
-        .order("inserted_at", { ascending: true })
+        .order("created_at", { ascending: true })
         .limit(500);
       if (error) throw error;
       return (data as unknown as Message[]) ?? [];
@@ -490,6 +487,10 @@ function ChatThread({
           )
         );
         qc.invalidateQueries({ queryKey: ["unread-badge"] });
+        markMessageNotificationsRead().then(() => {
+          qc.invalidateQueries({ queryKey: ["notifications"] });
+          qc.invalidateQueries({ queryKey: ["unread-notifications"] });
+        }).catch(() => {});
       });
   }, [messages, me, peerId, qc, queryKey]);
 
@@ -543,7 +544,6 @@ function ChatThread({
     const { error } = await client.from("messages").insert({
       sender_id: me,
       recipient_id: peerId,
-      content: body.trim() || "",
       body: body.trim() || null,
       attachment_url: attachment?.url ?? null,
       attachment_name: attachment?.name ?? null,
@@ -673,7 +673,7 @@ function ChatThread({
 }
 
 function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
-  const text = m.body || m.content;
+  const text = m.body;
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
@@ -693,7 +693,7 @@ function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
           }`}
         >
           <span>
-            {new Date(m.inserted_at || m.created_at).toLocaleTimeString("ru-RU", {
+            {new Date(m.created_at).toLocaleTimeString("ru-RU", {
               hour: "2-digit",
               minute: "2-digit",
             })}
