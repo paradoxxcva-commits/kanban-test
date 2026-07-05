@@ -80,9 +80,15 @@ export function Topbar() {
           <div className="max-w-[180px] truncate text-xs font-medium text-foreground">
             {profile?.full_name || user?.email || "Гость"}
           </div>
-          <div className="text-[10px] text-muted-foreground">
-            {org?.name || roleLabel}
-          </div>
+          {isSuperAdmin ? (
+            <div className="text-[10px] font-semibold text-amber-500">
+              {roleLabel}
+            </div>
+          ) : (
+            <div className="text-[10px] text-muted-foreground">
+              {org?.name || roleLabel}
+            </div>
+          )}
         </div>
       </div>
 
