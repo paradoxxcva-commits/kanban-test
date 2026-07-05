@@ -724,7 +724,11 @@ function Attachment({ m, mine }: { m: Message; mine: boolean }) {
     const { data } = supabase.storage
       .from("chat-attachments")
       .getPublicUrl(m.attachment_url);
-    if (active && data?.publicUrl) setUrl(data.publicUrl);
+    if (active && data?.publicUrl) {
+      const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+      const sep = data.publicUrl.includes("?") ? "&" : "?";
+      setUrl(`${data.publicUrl}${sep}apikey=${apiKey}`);
+    }
     return () => {
       active = false;
     };
