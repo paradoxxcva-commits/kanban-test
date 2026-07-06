@@ -36,6 +36,7 @@ export async function getActiveCalendarToken(userId: string): Promise<CalendarTo
     .select("*")
     .eq("user_id", userId)
     .is("revoked_at", null)
+    .is("calendar_id", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -61,14 +62,18 @@ export async function getOrCreateCalendarToken(
 ): Promise<CalendarTokenRow> {
   const client = supabase as AnyClient;
   const calId = calendarId ?? null;
-  const { data: existing } = await client
+  let query = client
     .from("calendar_tokens")
     .select("*")
     .eq("user_id", userId)
-    .eq("calendar_id", calId)
     .is("revoked_at", null)
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (calId) {
+    query = query.eq("calendar_id", calId);
+  } else {
+    query = query.is("calendar_id", null);
+  }
+  const { data: existing } = await query.maybeSingle();
   if (existing) return existing as CalendarTokenRow;
 
   const token = randomHex(16);
@@ -77,7 +82,7 @@ export async function getOrCreateCalendarToken(
     .insert({ user_id: userId, token, calendar_id: calId })
     .select()
     .single();
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return data as CalendarTokenRow;
 }
 

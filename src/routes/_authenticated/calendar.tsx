@@ -844,9 +844,13 @@ function IcalDialog({
 
   const onCreate = async () => {
     if (!userId) return;
-    const calId = selectedCalId === "__all__" ? null : selectedCalId;
-    await getOrCreateCalendarToken(userId, calId);
-    tokensQ.refetch();
+    try {
+      const calId = selectedCalId === "__all__" ? null : selectedCalId;
+      await getOrCreateCalendarToken(userId, calId);
+      tokensQ.refetch();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
   };
 
   const onRevoke = async (tokenId: string) => {
