@@ -27,6 +27,7 @@ export const createBoard = createServerFn({ method: "POST" })
           name: z.string().min(1),
           description: z.string().optional(),
           color: z.string().optional(),
+          departmentIds: z.array(z.string().uuid()).optional(),
         })
         .parse(d),
   )
@@ -45,6 +46,17 @@ export const createBoard = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // Assign departments to board
+    if (data.departmentIds?.length) {
+      const rows = data.departmentIds.map((deptId) => ({
+        board_id: board.id,
+        department_id: deptId,
+      }));
+      const { error: deptErr } = await supabaseAdmin.from("board_departments").insert(rows);
+      if (deptErr) throw new Error(deptErr.message);
+    }
+
     return board;
   });
 

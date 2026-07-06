@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Dialog,
@@ -14,8 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
-import { createBoard } from "@/lib/boards-api";
+import { createBoard } from "@/lib/board-admin.functions";
+import { listDepartments } from "@/lib/admin.functions";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 
 const COLORS = [
   { id: "brand", className: "bg-brand" },
@@ -33,31 +35,47 @@ export function CreateBoardDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { profile, user } = useAuth();
+  const { profile, user, hasRole } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("brand");
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
+
+  const createBoardFn = useServerFn(createBoard);
+  const listDeptsFn = useServerFn(listDepartments);
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments", profile?.org_id],
+    queryFn: () => listDeptsFn({ data: { orgId: profile!.org_id! } }),
+    enabled: !!profile?.org_id && (hasRole("admin") || hasRole("super_admin")),
+  });
+
+  const toggleDept = (id: string) => {
+    setSelectedDepts((prev) => prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]);
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!profile?.org_id) throw new Error("Вы не привязаны к организации.");
-      if (!user) throw new Error("Нет сессии.");
-      return createBoard({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        color,
-        org_id: profile.org_id,
-        created_by: user.id,
+      return createBoardFn({
+        data: {
+          orgId: profile.org_id,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          color,
+          departmentIds: selectedDepts.length > 0 ? selectedDepts : undefined,
+        },
       });
     },
-    onSuccess: (board) => {
+    onSuccess: (board: any) => {
       qc.invalidateQueries({ queryKey: ["boards"] });
       onOpenChange(false);
       setName("");
       setDescription("");
       setColor("brand");
+      setSelectedDepts([]);
       navigate({ to: "/boards/$boardId", params: { boardId: board.id } });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -117,6 +135,28 @@ export function CreateBoardDialog({
               ))}
             </div>
           </div>
+          {departments.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Подразделения (кому видна доска)</Label>
+              <p className="text-xs text-muted-foreground">Оставьте пустым — видна всем в организации</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {departments.map((d: any) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => toggleDept(d.id)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                      selectedDepts.includes(d.id)
+                        ? "bg-brand text-brand-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {d.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Отмена

@@ -3,10 +3,18 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Users, Plus, Trash2, Loader2, Search, X } from "lucide-react";
+import { Users, Plus, Trash2, Loader2, Search, X, Building2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { useAuth } from "@/lib/auth-context";
 import { listOrgMembers, inviteOrgMember, removeOrgMember } from "@/lib/org-admin.functions";
+import {
+  listDepartments,
+  createDepartment,
+  deleteDepartment,
+  assignUserDepartment,
+  removeUserDepartment,
+  listUserDepartments,
+} from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/org-admin")({
   head: () => ({ meta: [{ title: "Админ организации — Планка" }] }),
@@ -35,20 +43,111 @@ function OrgAdminPage() {
           </div>
         </header>
         <OrgMembersPanel orgId={profile?.org_id} />
+        <DepartmentsPanel orgId={profile?.org_id} />
       </div>
     </AppShell>
   );
 }
 
-function OrgMembersPanel({ orgId }: { orgId: string | null | undefined }) {
-  const fetchMembers = useServerFn(listOrgMembers);
-  const delMember = useServerFn(removeOrgMember);
+function DepartmentsPanel({ orgId }: { orgId: string | null | undefined }) {
+  const listDeptsFn = useServerFn(listDepartments);
+  const createDeptFn = useServerFn(createDepartment);
+  const deleteDeptFn = useServerFn(deleteDepartment);
 
-  const { data: members, refetch, isLoading } = useQuery({
-    queryKey: ["org-members", orgId],
-    queryFn: () => fetchMembers({ data: { orgId: orgId! } }),
+  const { data: departments = [], refetch, isLoading } = useQuery({
+    queryKey: ["departments", orgId],
+    queryFn: () => listDeptsFn({ data: { orgId: orgId! } }),
     enabled: !!orgId,
   });
+
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const onAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await createDeptFn({ data: { orgId: orgId!, name: name.trim() } });
+      toast.success("Подразделение создано");
+      setName("");
+      refetch();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+    setBusy(false);
+  };
+
+  const onDelete = async (id: string, deptName: string) => {
+    if (!confirm(`Удалить подразделение «${deptName}»?`)) return;
+    try {
+      await deleteDeptFn({ data: { departmentId: id } });
+      toast.success("Подразделение удалено");
+      refetch();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+  };
+
+  if (!orgId) return null;
+
+  return (
+    <section className="surface-card p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">Подразделения</h2>
+      </div>
+      <p className="mb-4 text-xs text-muted-foreground">
+        Подразделения позволяют разграничить доступ к доскам. Пользователей можно назначить в подразделения в таблице выше.
+      </p>
+
+      <form onSubmit={onAdd} className="mb-4 flex gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Название подразделения"
+          required
+          className="ring-focus flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+        <button
+          disabled={busy || !name.trim()}
+          className="ring-focus inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-xs font-semibold text-brand-foreground hover:bg-brand-glow disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Добавить
+        </button>
+      </form>
+
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground">Загрузка…</div>
+      ) : (departments as any[]).length === 0 ? (
+        <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+          Подразделений пока нет. Создайте первое выше.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(departments as any[]).map((d: any) => (
+            <div key={d.id} className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-2">
+              <span className="text-sm text-foreground">{d.name}</span>
+              <button
+                onClick={() => onDelete(d.id, d.name)}
+                className="text-destructive hover:text-destructive/80"
+                title="Удалить"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+      refetchUserDepts();
+    } catch (err: any) {
+      toast.error("Ошибка", { description: err.message });
+    }
+  };
 
   const [query, setQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -108,6 +207,7 @@ function OrgMembersPanel({ orgId }: { orgId: string | null | undefined }) {
             <tr>
               <th className="px-3 py-2 text-left font-medium">Пользователь</th>
               <th className="px-3 py-2 text-left font-medium">Роль</th>
+              <th className="px-3 py-2 text-left font-medium">Подразделения</th>
               <th className="px-3 py-2 text-left font-medium">Статус</th>
               <th className="px-3 py-2 text-right font-medium">Действия</th>
             </tr>
@@ -120,7 +220,10 @@ function OrgMembersPanel({ orgId }: { orgId: string | null | undefined }) {
                 </td>
               </tr>
             )}
-            {filtered.map((u: any) => (
+            {filtered.map((u: any) => {
+              const uDepts = getUserDepts(u.id);
+              const uDeptIds = uDepts.map((d: any) => d.id);
+              return (
               <tr key={u.id} className="border-t border-border align-top">
                 <td className="px-3 py-3">
                   <div className="text-foreground">{u.full_name || "—"}</div>
@@ -130,6 +233,28 @@ function OrgMembersPanel({ orgId }: { orgId: string | null | undefined }) {
                   <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground">
                     {(u.roles ?? [])[0] === "admin" ? "Админ" : "Сотрудник"}
                   </span>
+                </td>
+                <td className="px-3 py-3">
+                  {departments.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {(departments as any[]).map((d: any) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => toggleUserDept(u.id, d.id, uDeptIds.includes(d.id))}
+                          className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
+                            uDeptIds.includes(d.id)
+                              ? "bg-brand text-brand-foreground"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {d.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-3">
                   <span
@@ -150,10 +275,10 @@ function OrgMembersPanel({ orgId }: { orgId: string | null | undefined }) {
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                <td colSpan={5} className="px-3 py-6 text-center text-xs text-muted-foreground">
                   Ничего не найдено
                 </td>
               </tr>

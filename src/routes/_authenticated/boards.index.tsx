@@ -37,14 +37,14 @@ function BoardsPage() {
   const canCreateBoard = hasRole("admin") || hasRole("super_admin");
   const { data: boards, isLoading } = useQuery({
     queryKey: ["boards", selectedOrgId],
-    queryFn: async (): Promise<BoardRow[]> => {
-      let query = supabase.from("boards").select("*");
+    queryFn: async () => {
+      let query = supabase.from("boards").select("*, board_departments(departments(id, name))");
       if (isSuperAdmin && selectedOrgId) {
         query = query.eq("org_id", selectedOrgId);
       }
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as BoardRow[];
+      return (data ?? []) as any[];
     },
     enabled: !isSuperAdmin || !!selectedOrgId,
   });
@@ -100,6 +100,15 @@ function BoardsPage() {
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                     {b.description}
                   </p>
+                )}
+                {b.board_departments?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {b.board_departments.map((bd: any) => (
+                      <span key={bd.departments.id} className="rounded bg-brand/15 px-1.5 py-0.5 text-[10px] text-brand">
+                        {bd.departments.name}
+                      </span>
+                    ))}
+                  </div>
                 )}
                 <div className="mt-4 text-[11px] text-muted-foreground">
                   создана {new Date(b.created_at).toLocaleDateString("ru-RU")}

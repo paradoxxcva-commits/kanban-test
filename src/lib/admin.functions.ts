@@ -52,7 +52,15 @@ export const superAdminCheck = createServerFn({ method: "GET" }).handler(async (
 async function ensureSuperAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("is_super_admin", { _user_id: ctx.userId });
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Доступ запрещён: требуются права системного администратора.");
+  if (!data) throw new Error("Доступ запрещён: требуются права суперадминистратора.");
+}
+
+async function ensureOrgAdmin(ctx: { supabase: any; userId: string }, orgId: string) {
+  const { data: isSuper } = await ctx.supabase.rpc("is_super_admin", { _user_id: ctx.userId });
+  if (isSuper) return;
+  const { data: isAdmin, error } = await ctx.supabase.rpc("is_org_admin", { _user_id: ctx.userId, _org_id: orgId });
+  if (error) throw new Error(error.message);
+  if (!isAdmin) throw new Error("Доступ запрещён: требуются права администратора организации.");
 }
 
 export const listOrganizations = createServerFn({ method: "GET" })
@@ -311,6 +319,122 @@ export const changeOwnPassword = createServerFn({ method: "POST" })
 
 // Super admin: set any user's password (including own) without current-password check.
 export const adminSetUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ userId: z.string().uuid(), newPassword: z.string().min(8).max(72) })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.newPassword,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ============ DEPARTMENTS ============
+
+export const listDepartments = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ orgId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: depts, error } = await supabaseAdmin
+      .from("departments")
+      .select("id, name, created_at")
+      .eq("org_id", data.orgId)
+      .order("name");
+    if (error) throw new Error(error.message);
+    return depts ?? [];
+  });
+
+export const createDepartment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ orgId: z.string().uuid(), name: z.string().min(1) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await ensureOrgAdmin(context as any, data.orgId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: dept, error } = await supabaseAdmin
+      .from("departments")
+      .insert({ org_id: data.orgId, name: data.name })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return dept;
+  });
+
+export const deleteDepartment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ departmentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: dept, error: fetchErr } = await supabaseAdmin
+      .from("departments")
+      .select("org_id")
+      .eq("id", data.departmentId)
+      .single();
+    if (fetchErr || !dept) throw new Error("Подразделение не найдено");
+    await ensureOrgAdmin(context as any, dept.org_id);
+    const { error } = await supabaseAdmin.from("departments").delete().eq("id", data.departmentId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const assignUserDepartment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ userId: z.string().uuid(), departmentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: dept, error: fetchErr } = await supabaseAdmin
+      .from("departments")
+      .select("org_id")
+      .eq("id", data.departmentId)
+      .single();
+    if (fetchErr || !dept) throw new Error("Подразделение не найдено");
+    await ensureOrgAdmin(context as any, dept.org_id);
+    const { error } = await supabaseAdmin
+      .from("user_departments")
+      .insert({ user_id: data.userId, department_id: data.departmentId });
+    if (error && !error.message.includes("duplicate")) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const removeUserDepartment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ userId: z.string().uuid(), departmentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: dept, error: fetchErr } = await supabaseAdmin
+      .from("departments")
+      .select("org_id")
+      .eq("id", data.departmentId)
+      .single();
+    if (fetchErr || !dept) throw new Error("Подразделение не найдено");
+    await ensureOrgAdmin(context as any, dept.org_id);
+    const { error } = await supabaseAdmin
+      .from("user_departments")
+      .delete()
+      .eq("user_id", data.userId)
+      .eq("department_id", data.departmentId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listUserDepartments = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ orgId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("user_departments")
+      .select("user_id, department_id, departments!inner(id, name, org_id)")
+      .eq("departments.org_id", data.orgId);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
