@@ -166,6 +166,7 @@ services:
         VITE_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-https://kanban.ignorelist.com}
         SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
         SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+        VITE_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
     restart: unless-stopped
     depends_on:
       kong:

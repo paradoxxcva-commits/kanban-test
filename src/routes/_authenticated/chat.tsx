@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { createNotification, markMessageNotificationsRead } from "@/lib/notifications-api";
+import { sendPushNotification } from "@/lib/push-delivery";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Чат — Планка" }] }),
@@ -567,6 +568,15 @@ function ChatThread({
         title: peer?.full_name || peer?.email || "Новое сообщение",
         body: body.trim() || "Файл",
         link: "/chat",
+      }).catch(() => {});
+      sendPushNotification({
+        data: {
+          userId: peerId,
+          title: "Новое сообщение",
+          body: body.trim() || "Файл",
+          url: "/chat",
+          tag: "chat-message",
+        },
       }).catch(() => {});
     }
   };

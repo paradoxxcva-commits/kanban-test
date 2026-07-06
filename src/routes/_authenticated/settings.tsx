@@ -10,6 +10,7 @@ import {
   updateNotificationPrefs,
   type NotificationPrefs,
 } from "@/lib/notifications-api";
+import { subscribePush, unsubscribePush, isPushSupported } from "@/lib/push";
 import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -49,14 +50,44 @@ function SettingsPage() {
 
   const toggleBrowserPush = async () => {
     if (!prefs) return;
-    if (!prefs.browser_push && "Notification" in window) {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        toast.error("Браузер запретил уведомления");
+    if (!prefs.browser_push) {
+      const supported = await isPushSupported();
+      if (!supported) {
+        toast.error("Браузер не поддерживает push-уведомления");
         return;
       }
+      if ("Notification" in window) {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          toast.error("Браузер запретил уведомления");
+          return;
+        }
+      }
+      try {
+        await subscribePush();
+        toast.success("Push-уведомления включены");
+      } catch {
+        toast.error("Не удалось подписаться на push");
+        return;
+      }
+    } else {
+      try {
+        await unsubscribePush();
+      } catch {}
     }
     await togglePref("browser_push");
+  };
+
+  const updateReminderMinutes = async (minutes: number) => {
+    if (!prefs) return;
+    const prev = prefs;
+    setPrefs({ ...prefs, calendar_reminder_minutes: minutes });
+    try {
+      await updateNotificationPrefs({ calendar_reminder_minutes: minutes });
+    } catch {
+      setPrefs(prev);
+      toast.error("Ошибка сохранения");
+    }
   };
 
   return (
@@ -131,6 +162,25 @@ function SettingsPage() {
                     <p className="text-xs text-muted-foreground">Browser push когда вкладка скрыта</p>
                   </div>
                   <Switch checked={prefs.browser_push} onCheckedChange={toggleBrowserPush} />
+                </div>
+              </div>
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-foreground">Напоминание о событии</p>
+                    <p className="text-xs text-muted-foreground">За сколько минут push до начала события</p>
+                  </div>
+                  <select
+                    value={prefs.calendar_reminder_minutes ?? 15}
+                    onChange={(e) => updateReminderMinutes(Number(e.target.value))}
+                    className="ring-focus rounded-md border border-input bg-background px-2 py-1 text-xs"
+                  >
+                    <option value={5}>5 мин</option>
+                    <option value={10}>10 мин</option>
+                    <option value={15}>15 мин</option>
+                    <option value={30}>30 мин</option>
+                    <option value={60}>1 час</option>
+                  </select>
                 </div>
               </div>
             </div>

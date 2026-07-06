@@ -29,6 +29,7 @@ import {
 } from "@/lib/boards-api";
 import { useAuth } from "@/lib/auth-context";
 import { archiveTask, unarchiveTask } from "@/lib/board-admin.functions";
+import { sendPushNotification } from "@/lib/push-delivery";
 import { createNotification } from "@/lib/notifications-api";
 import { toast } from "sonner";
 import { Trash2, Calendar, Loader2, Bell, Archive, ArchiveRestore } from "lucide-react";
@@ -154,6 +155,9 @@ export function TaskDialog({
             link: `/boards/${boardId}`,
             entityId: task.id,
           }).catch(() => {});
+          sendPushNotification({
+            data: { userId: assigneeId, title: "Новая задача", body: title.trim(), url: `/boards/${boardId}`, tag: "task-assigned" },
+          }).catch(() => {});
         }
       } else {
         await createTask({
@@ -174,6 +178,9 @@ export function TaskDialog({
             title: title.trim(),
             body: `Новая задача назначена вам`,
             link: `/boards/${boardId}`,
+          }).catch(() => {});
+          sendPushNotification({
+            data: { userId: assigneeId, title: "Новая задача", body: title.trim(), url: `/boards/${boardId}`, tag: "task-assigned" },
           }).catch(() => {});
         }
       }

@@ -17,6 +17,7 @@ import {
   markAllNotificationsRead,
   type Notification,
 } from "@/lib/notifications-api";
+import { checkCalendarReminders } from "@/lib/calendar-reminders";
 
 export function NotificationCenter() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -40,6 +41,30 @@ export function NotificationCenter() {
   useEffect(() => {
     fetchCount();
     const interval = setInterval(fetchCount, 10000);
+    return () => clearInterval(interval);
+  }, [fetchCount]);
+
+  // Check calendar reminders every 60 seconds
+  useEffect(() => {
+    const checkReminders = async () => {
+      try {
+        const result = await checkCalendarReminders();
+        if (result.reminders?.length) {
+          for (const r of result.reminders) {
+            if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+              new Notification("Скоро: " + r.title, {
+                body: "Начало в " + new Date(r.start_time).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+                icon: "/favicon.ico",
+                tag: "calendar-" + r.event_id,
+              });
+            }
+          }
+          fetchCount();
+        }
+      } catch {}
+    };
+    checkReminders();
+    const interval = setInterval(checkReminders, 60000);
     return () => clearInterval(interval);
   }, [fetchCount]);
 

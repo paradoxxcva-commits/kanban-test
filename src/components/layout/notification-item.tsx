@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
-import { MessageSquare, CheckSquare, AlertTriangle, Bell, Clock } from "lucide-react";
+import { MessageSquare, CheckSquare, AlertTriangle, Bell, Clock, Calendar } from "lucide-react";
 import type { Notification } from "@/lib/notifications-api";
 
 const TYPE_ICON: Record<Notification["type"], typeof MessageSquare> = {
@@ -10,6 +10,7 @@ const TYPE_ICON: Record<Notification["type"], typeof MessageSquare> = {
   task_due_soon: AlertTriangle,
   comment: MessageSquare,
   reminder: Clock,
+  calendar_event: Calendar,
 };
 
 const TYPE_LABEL: Record<Notification["type"], string> = {
@@ -18,6 +19,7 @@ const TYPE_LABEL: Record<Notification["type"], string> = {
   task_due_soon: "Срок задачи",
   comment: "Комментарий",
   reminder: "Напоминание",
+  calendar_event: "Событие",
 };
 
 export function NotificationItem({

@@ -50,7 +50,7 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
-    if (url.pathname.startsWith("/assets/")) {
+    if (url.pathname.startsWith("/assets/") || url.pathname === "/sw.js" || url.pathname === "/favicon.ico") {
       const served = await serveStatic(url.pathname, res);
       if (served) return;
     }

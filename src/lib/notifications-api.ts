@@ -6,7 +6,7 @@ export interface Notification {
   id: string;
   user_id: string;
   org_id: string;
-  type: "message" | "task_assigned" | "task_due_soon" | "comment" | "reminder";
+  type: "message" | "task_assigned" | "task_due_soon" | "comment" | "reminder" | "calendar_event";
   title: string;
   body: string | null;
   link: string | null;
@@ -22,6 +22,7 @@ export interface NotificationPrefs {
   comment_enabled: boolean;
   reminder_enabled: boolean;
   browser_push: boolean;
+  calendar_reminder_minutes: number;
   updated_at: string;
 }
 
@@ -77,6 +78,7 @@ export async function updateNotificationPrefs(prefs: {
   comment_enabled?: boolean;
   reminder_enabled?: boolean;
   browser_push?: boolean;
+  calendar_reminder_minutes?: number;
 }): Promise<void> {
   const client = supabase as AnyClient;
   const { error } = await client.rpc("update_notification_prefs", {
@@ -85,6 +87,7 @@ export async function updateNotificationPrefs(prefs: {
     _comment_enabled: prefs.comment_enabled ?? null,
     _reminder_enabled: prefs.reminder_enabled ?? null,
     _browser_push: prefs.browser_push ?? null,
+    _calendar_reminder_minutes: prefs.calendar_reminder_minutes ?? null,
   });
   if (error) throw new Error(error.message);
 }
