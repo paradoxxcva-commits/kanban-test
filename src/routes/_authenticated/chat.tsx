@@ -172,7 +172,7 @@ function SuperAdminChat({
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100dvh-3.5rem)]">
+      <div className="flex flex-1 overflow-hidden">
         {/* Список контактов: на мобильном — весь экран когда нет выбранного чата */}
         <aside className={`flex shrink-0 flex-col bg-surface ${
           isMobile
@@ -332,7 +332,7 @@ function UserChat({
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100dvh-3.5rem)]">
+      <div className="flex flex-1 overflow-hidden">
         {/* Список контактов: на мобильном — весь экран когда нет выбранного чата */}
         <aside className={`flex shrink-0 flex-col bg-surface ${
           isMobile
