@@ -4,7 +4,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones, Check, CheckCheck } from "lucide-react";
+import { Paperclip, Send, MessageSquare, FileText, Loader2, Headphones, Check, CheckCheck, ArrowLeft, Trash2, X } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { createNotification, markMessageNotificationsRead } from "@/lib/notifications-api";
 import { sendPushNotification } from "@/lib/push-delivery";
@@ -44,6 +45,18 @@ function initials(name: string | null, email: string) {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase())
     .join("");
+}
+
+function formatDayLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = today.getTime() - msgDate.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Сегодня";
+  if (days === 1) return "Вчера";
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
 }
 
 function Badge({ count }: { count: number }) {
@@ -91,6 +104,7 @@ function SuperAdminChat({
   selected: string | null;
   setSelected: (id: string | null) => void;
 }) {
+  const isMobile = useIsMobile();
   const { data: supportChats } = useQuery({
     queryKey: ["support-chats", user.id],
     queryFn: async () => {
@@ -158,8 +172,13 @@ function SuperAdminChat({
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-3.5rem)]">
-        <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
+      <div className="flex h-[calc(100dvh-3.5rem)]">
+        {/* Список контактов: на мобильном — весь экран когда нет выбранного чата */}
+        <aside className={`flex shrink-0 flex-col bg-surface ${
+          isMobile
+            ? selected ? "hidden" : "w-full"
+            : "w-72 border-r border-border"
+        }`}>
           <div className="border-b border-border p-4">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
               <Headphones className="h-3.5 w-3.5" /> Техподдержка
@@ -206,13 +225,17 @@ function SuperAdminChat({
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* Область чата: на мобильном — весь экран когда выбран чат */}
+        <div className={`flex min-w-0 flex-1 flex-col ${
+          isMobile && !selected ? "hidden" : ""
+        }`}>
           {selected && user ? (
             <ChatThread
               me={user.id}
               peerId={selected}
               peer={supportChats?.find((u) => u.id === selected)}
               orgId={supportChats?.find((u) => u.id === selected)?.org_id}
+              onBack={isMobile ? () => setSelected(null) : undefined}
               onOpen={() => {
                 setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
               }}
@@ -239,6 +262,7 @@ function UserChat({
   selected: string | null;
   setSelected: (id: string | null) => void;
 }) {
+  const isMobile = useIsMobile();
   const { data: superAdmin } = useQuery({
     queryKey: ["super-admin-id"],
     queryFn: async () => {
@@ -308,8 +332,13 @@ function UserChat({
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-3.5rem)]">
-        <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
+      <div className="flex h-[calc(100dvh-3.5rem)]">
+        {/* Список контактов: на мобильном — весь экран когда нет выбранного чата */}
+        <aside className={`flex shrink-0 flex-col bg-surface ${
+          isMobile
+            ? selected ? "hidden" : "w-full"
+            : "w-72 border-r border-border"
+        }`}>
           <div className="border-b border-border p-4">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
               <MessageSquare className="h-3.5 w-3.5" /> Чат
@@ -393,7 +422,10 @@ function UserChat({
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* Область чата: на мобильном — весь экран когда выбран чат */}
+        <div className={`flex min-w-0 flex-1 flex-col ${
+          isMobile && !selected ? "hidden" : ""
+        }`}>
           {selected && user ? (
             <ChatThread
               me={user.id}
@@ -404,6 +436,7 @@ function UserChat({
                   : users?.find((u) => u.id === selected)
               }
               orgId={profile?.org_id}
+              onBack={isMobile ? () => setSelected(null) : undefined}
               onOpen={() => {
                 setUnreadMap((prev) => ({ ...prev, [selected]: 0 }));
               }}
@@ -424,14 +457,21 @@ function ChatThread({
   peerId,
   peer,
   orgId,
+  onBack,
   onOpen,
 }: {
   me: string;
   peerId: string;
   peer?: OrgUser | null;
   orgId?: string | null;
+  onBack?: () => void;
   onOpen?: () => void;
 }) {
+  const isMobile = useIsMobile();
+  const { hasRole } = useAuth();
+  const canDelete = hasRole("admin") || hasRole("super_admin");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectMode = selectedIds.size > 0;
   const qc = useQueryClient();
   const queryKey = useMemo(() => ["messages", me, peerId], [me, peerId]);
   const { data: messages = [] } = useQuery({
@@ -457,8 +497,29 @@ function ChatThread({
   }, []);
 
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+
+  const checkIfAtBottom = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+  };
+
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      isAtBottomRef.current = checkIfAtBottom();
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages.length]);
 
   // Mark messages as read when viewing conversation
@@ -603,37 +664,121 @@ function ChatThread({
     await send({ url: path, name: file.name, size: file.size, mime: file.type });
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const { error } = await (supabase as any)
+      .from("messages")
+      .delete()
+      .in("id", ids);
+    if (error) {
+      toast.error("Не удалось удалить", { description: error.message });
+      return;
+    }
+    qc.setQueryData<Message[]>(queryKey, (prev) =>
+      prev?.filter((m) => !ids.includes(m.id))
+    );
+    setSelectedIds(new Set());
+    toast.success(`Удалено: ${ids.length}`);
+  };
+
   return (
     <>
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-          {peer ? (
-            peer.id === peerId && peer.full_name === undefined ? (
-              <Headphones className="h-4 w-4" />
-            ) : (
-              initials(peer.full_name, peer.email)
-            )
-          ) : (
-            "?"
-          )}
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-foreground">
-            {peer?.full_name || peer?.email}
-          </div>
-          <div className="text-[11px] text-muted-foreground">Личный диалог</div>
-        </div>
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-3 md:px-5">
+        {selectMode ? (
+          <>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ring-focus flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+              aria-label="Отменить выделение"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <span className="text-sm font-medium text-foreground">
+              Выбрано: {selectedIds.size}
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={deleteSelected}
+              className="ring-focus flex h-9 items-center gap-1.5 rounded-md bg-destructive px-3 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden md:inline">Удалить</span>
+            </button>
+          </>
+        ) : (
+          <>
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="ring-focus flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:hidden"
+                aria-label="Назад"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            )}
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+              {peer ? (
+                peer.id === peerId && peer.full_name === undefined ? (
+                  <Headphones className="h-4 w-4" />
+                ) : (
+                  initials(peer.full_name, peer.email)
+                )
+              ) : (
+                "?"
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-foreground">
+                {peer?.full_name || peer?.email}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Личный диалог</div>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto p-5">
+      <div ref={scrollContainerRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 md:p-5">
         {messages.length === 0 && (
           <div className="mx-auto max-w-sm text-center text-xs text-muted-foreground">
             Сообщений пока нет. Начните диалог.
           </div>
         )}
-        {messages.map((m) => (
-          <MessageBubble key={m.id} m={m} mine={m.sender_id === me} />
-        ))}
+        {messages.map((m, i) => {
+          const prevDate = i > 0 ? new Date(messages[i - 1].inserted_at).toDateString() : null;
+          const curDate = new Date(m.inserted_at).toDateString();
+          const showDateSep = curDate !== prevDate;
+          return (
+            <div key={m.id}>
+              {showDateSep && (
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 border-t border-border" />
+                  <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+                    {formatDayLabel(m.inserted_at)}
+                  </span>
+                  <div className="flex-1 border-t border-border" />
+                </div>
+              )}
+              <MessageBubble
+                m={m}
+                mine={m.sender_id === me}
+                canDelete={canDelete}
+                selected={selectedIds.has(m.id)}
+                onSelect={canDelete ? () => toggleSelect(m.id) : undefined}
+                selectMode={selectMode}
+              />
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
 
@@ -678,23 +823,45 @@ function ChatThread({
           ) : (
             <Send className="h-4 w-4" />
           )}
-          Отправить
+          <span className="hidden md:inline">Отправить</span>
         </button>
       </form>
     </>
   );
 }
 
-function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
+function MessageBubble({
+  m,
+  mine,
+  canDelete,
+  selected,
+  onSelect,
+  selectMode,
+}: {
+  m: Message;
+  mine: boolean;
+  canDelete?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
+  selectMode?: boolean;
+}) {
   const text = m.content || m.body;
+  const handleClick = () => {
+    if (canDelete && onSelect) onSelect();
+  };
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[70%] rounded-2xl px-3.5 py-2 text-sm ${
+        onClick={handleClick}
+        className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-3.5 py-2 text-sm transition ${
           mine
             ? "bg-brand text-brand-foreground"
             : "bg-surface text-foreground border border-border"
-        }`}
+        } ${
+          canDelete ? "cursor-pointer select-none" : ""
+        } ${
+          selected ? "ring-2 ring-destructive ring-offset-1" : ""
+        } ${selectMode && !selected ? "opacity-60" : ""}`}
       >
         {text && (
           <div className="whitespace-pre-wrap break-words">{text}</div>
@@ -705,7 +872,7 @@ function MessageBubble({ m, mine }: { m: Message; mine: boolean }) {
             mine ? "text-brand-foreground/70" : "text-muted-foreground"
           }`}
         >
-          <span>
+          <span title={new Date(m.inserted_at).toLocaleString("ru-RU")}>
             {new Date(m.inserted_at).toLocaleTimeString("ru-RU", {
               hour: "2-digit",
               minute: "2-digit",
